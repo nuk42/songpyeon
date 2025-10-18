@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>송편</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loading-text">로딩 중...</div>
+    </div>
+    <div id="app-container">
+        <main class="main-content">
+            <div class="button-container">
+                <button class="choice-button">돼지</button>
+                <button class="choice-button">토끼</button>
+            </div>
+        </main>
+        <div id="game-screen" class="hidden"></div>
+        <footer class="footer-settings">
+            <div id="practice-settings" class="hidden">
+                <div class="setting-item">
+                    <label for="lines-input">줄:</label>
+                    <input type="number" id="lines-input" min="1" max="999" value="5">
+                </div>
+                <div class="setting-item">
+                    <label for="time-input">시간:</label>
+                    <input type="number" id="time-input" min="1" max="999" value="4">
+                </div>
+            </div>
+            <div id="practice-toggle">연습모드: 끔</div>
+            <div id="fullscreen-toggle" style="cursor: pointer; color: white; margin-top: 10px;">전체화면</div>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
