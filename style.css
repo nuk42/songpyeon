@@ -474,3 +474,54 @@ img {
 .miss-overlay.hidden {
     display: none;
 }
+
+.recipe-container {
+    position: absolute;
+    top: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 85%;
+    height: 3.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5;
+}
+
+.recipe-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    z-index: 1;
+}
+
+.recipe-box {
+    position: absolute;
+    width: 50%;
+    height: 80%;
+    top: 1.5rem;
+    object-fit: fill;
+    z-index: 2;
+}
+
+.recipe-tteok-image {
+    position: absolute;
+    bottom: 20%;
+    height: 2rem;
+    width: auto;
+    margin-bottom: 0.5rem; /* Push it up from the center */
+    z-index: 3;
+}
+
+.recipe-tteok-name {
+    position: absolute;
+    top: 77%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #E0C7C1;
+    font-size: 0.8rem;
+    z-index: 3;
+    width: 100%;
+    text-align: center;
+}

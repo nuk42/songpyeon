@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let commandToBind = null;
     let keybinds = {};
     let commandBinds = {};
+    let botConfig = {};
+    let botActionTimeout = null;
+    let assetMap = {};
 
     // =================================================================
     // SECTION 1: CORE HELPER FUNCTIONS
@@ -212,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const onRoundEnd = (isSuccess) => {
         if (roundTimer) clearTimeout(roundTimer);
+        if (botActionTimeout) clearTimeout(botActionTimeout);
         gameFailed = true;
 
         if (isSuccess) {
@@ -228,42 +232,72 @@ document.addEventListener('DOMContentLoaded', () => {
         nextRoundTimeoutId = setTimeout(startNewRound, 1000);
     };
 
+    const handleCorrectInput = () => {
+        const iconToUpdate = document.querySelectorAll('.command-icon')[currentGameIndex];
+        if (iconToUpdate) {
+            iconToUpdate.src = iconToUpdate.src.replace('.png', '_off.png');
+            iconToUpdate.classList.add('popping');
+            iconToUpdate.addEventListener('animationend', () => {
+                iconToUpdate.classList.remove('popping');
+            }, { once: true });
+        }
+        currentGameIndex++;
+
+        if (currentGameIndex % 6 === 0 && currentGameIndex < gamePattern.length) {
+            const commandBox = document.querySelector('.command-box');
+            const rowHeight = commandBox ? commandBox.offsetHeight : 65;
+            const newTransformY = -((currentGameIndex / 6) * rowHeight);
+            animateScroll(newTransformY);
+        }
+    };
+
+    const processNextCommand = () => {
+        if (gameFailed) return;
+
+        if (currentGameIndex >= gamePattern.length) {
+            onRoundEnd(true);
+            return;
+        }
+
+        updateGlowIndicator();
+
+        const commandId = gamePattern[currentGameIndex];
+        const isPigCommand = [1, 2, 3, 6].includes(commandId);
+        const isPlayerTurn = (currentRole === '돼지' && isPigCommand) || (currentRole === '토끼' && !isPigCommand);
+
+        if (!isPlayerTurn) {
+            const delay = (botConfig.press_delays_ms && botConfig.press_delays_ms[commandId]) || 150;
+            botActionTimeout = setTimeout(() => {
+                handleCorrectInput();
+                processNextCommand();
+            }, delay);
+        }
+    };
+
     const handlePlayerInput = (commandId) => {
         if (gameFailed) return;
 
-        const timeLimit = parseInt(timeInput.value, 10) * 1000;
+        const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) * 1000 : 4000;
         if (performance.now() - roundStartTime > timeLimit) {
             onRoundEnd(false);
             return;
         }
 
         const expectedCommand = gamePattern[currentGameIndex];
-        if (commandId === expectedCommand) {
-            const iconToUpdate = document.querySelectorAll('.command-icon')[currentGameIndex];
-            if (iconToUpdate) {
-                iconToUpdate.src = iconToUpdate.src.replace('.png', '_off.png');
-                iconToUpdate.classList.add('popping');
-                iconToUpdate.addEventListener('animationend', () => {
-                    iconToUpdate.classList.remove('popping');
-                }, { once: true });
-            }
-            currentGameIndex++;
 
-            if (currentGameIndex === gamePattern.length) {
-                onRoundEnd(true);
-            } else {
-                if (currentGameIndex % 6 === 0) {
-                    const commandBox = document.querySelector('.command-box');
-                    const rowHeight = commandBox ? commandBox.offsetHeight : 65; // Fallback to 65px
-                    const newTransformY = -((currentGameIndex / 6) * rowHeight);
-                    animateScroll(newTransformY);
-                } else {
-                    updateGlowIndicator();
-                }
-            }
-        } else {
+        if (commandId !== expectedCommand) {
             showMissAnimation();
             onRoundEnd(false);
+            return;
+        }
+
+        const isPigCommand = [1, 2, 3, 6].includes(expectedCommand);
+        const isPlayerTurn = (currentRole === '돼지' && isPigCommand) || (currentRole === '토끼' && !isPigCommand);
+
+        if (isPlayerTurn) {
+            if (botActionTimeout) clearTimeout(botActionTimeout);
+            handleCorrectInput();
+            processNextCommand();
         }
     };
 
@@ -340,6 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
         if (roundTimer) clearTimeout(roundTimer);
+        if (botActionTimeout) clearTimeout(botActionTimeout);
         if (nextRoundTimeoutId) clearTimeout(nextRoundTimeoutId);
         mainContent.classList.remove('hidden');
         footerSettings.classList.remove('hidden');
@@ -347,17 +382,65 @@ document.addEventListener('DOMContentLoaded', () => {
         gameScreen.innerHTML = '';
     };
 
-    const showGameScreen = (role) => {
+    const parsePatternString = (patternString) => {
+        const pigNormalIcons = [1, 2, 3];
+        const rabbitNormalIcons = [4, 5, 7];
+        const pattern = [];
+        for (const char of patternString) {
+            switch (char) {
+                case 'R':
+                    pattern.push(pigNormalIcons[Math.floor(Math.random() * pigNormalIcons.length)]);
+                    break;
+                case 'r':
+                    pattern.push(rabbitNormalIcons[Math.floor(Math.random() * rabbitNormalIcons.length)]);
+                    break;
+                case 'p':
+                    pattern.push(6);
+                    break;
+                case 't':
+                    pattern.push(8);
+                    break;
+                default:
+                    // Ignore unknown characters
+                    break;
+            }
+        }
+        return pattern;
+    };
+
+    const showGameScreen = async (role) => {
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
+        if (botActionTimeout) clearTimeout(botActionTimeout);
         currentRole = role;
         rebuildRoleKeybinds(role);
         mainContent.classList.add('hidden');
         footerSettings.classList.add('hidden');
         gameScreen.classList.remove('hidden');
         
-        const lines = parseInt(linesInput.value, 10);
-        const pattern = patternGenerator.generateFullPattern(lines * 6, isPracticeMode ? role : null);
+        let pattern; // This will be an array of row arrays
+        if (isPracticeMode) {
+            const lines = parseInt(linesInput.value, 10);
+            pattern = patternGenerator.generateFullPattern(lines * 6, role);
+        } else {
+            try {
+                const response = await fetch(`patterns/Pig.txt`);
+                if (!response.ok) throw new Error('패턴 파일을 불러올 수 없습니다: ' + response.statusText);
+                const patternString = await response.text();
+                const parsedPattern = parsePatternString(patternString.trim());
+                
+                pattern = [];
+                for(let i = 0; i < parsedPattern.length; i += 6) {
+                    pattern.push(parsedPattern.slice(i, i + 6));
+                }
+            } catch (error) {
+                console.error("패턴 로딩 실패:", error);
+                alert("패턴 파일(patterns/Pig.txt)을 불러오는 데 실패했습니다.");
+                showMainScreen(); // Go back to main screen on error
+                return;
+            }
+        }
+
         gamePattern = pattern.flat();
         currentGameIndex = 0;
         gameFailed = false;
@@ -374,6 +457,18 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
         
+        const targetTteokKey = 'Pig';
+        const targetTteok = (assetMap.tteok && assetMap.tteok[targetTteokKey]) ? assetMap.tteok[targetTteokKey] : null;
+
+        const recipeContainerHTML = !isPracticeMode && targetTteok ? `
+            <div class="recipe-container">
+                <img src="res/thanksgiving_room_tteok_recipe_bg.png" class="recipe-bg">
+                <img src="${targetTteok.path}" class="recipe-tteok-image">
+                <img src="res/thanksgiving_room_tteok_recipe_box.9.png" class="recipe-box">
+                <div class="recipe-tteok-name">${targetTteok.korean_name}</div>
+            </div>
+        ` : '';
+
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -387,6 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <img src="res/thanksgiving_room_exit_unpressed.png" class="exit-button">
             <div class="game-area">
+                ${recipeContainerHTML}
                 <img class="glow-indicator hidden">
                 <div class="scroll-viewport"><div class="scroll-content">${commandBoxesHTML}</div></div>
             </div>
@@ -396,7 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         positionGlowReliably();
 
         if (roundTimer) clearTimeout(roundTimer);
-        const timeLimit = parseInt(timeInput.value, 10);
+        const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) : 4;
         roundStartTime = performance.now();
         roundTimer = setTimeout(() => {
             if (gameFailed) return;
@@ -411,13 +507,17 @@ document.addEventListener('DOMContentLoaded', () => {
             gauge.style.transition = `width ${timeLimit}s linear`;
             gauge.style.width = '0%';
         }
+
+        processNextCommand();
     };
 
     const validateAndStartGame = (role) => {
-        const lines = parseInt(linesInput.value,10), time = parseInt(timeInput.value,10);
-        if(lines>=1000||time>=1000){alert("줄 또는 시간 값은 999를 초과할 수 없습니다.");return;}
-        if(lines===0||time===0){alert("줄 또는 시간 값은 0이 될 수 없습니다.");return;}
-        if(isNaN(lines)||isNaN(time)||lines<1||time<1){alert("유효하지 않은 값입니다. 1 이상의 숫자를 입력하세요.");return;}
+        if (isPracticeMode) {
+            const lines = parseInt(linesInput.value,10), time = parseInt(timeInput.value,10);
+            if(lines>=1000||time>=1000){alert("줄 또는 시간 값은 999를 초과할 수 없습니다.");return;}
+            if(lines===0||time===0){alert("줄 또는 시간 값은 0이 될 수 없습니다.");return;}
+            if(isNaN(lines)||isNaN(time)||lines<1||time<1){alert("유효하지 않은 값입니다. 1 이상의 숫자를 입력하세요.");return;}
+        }
         showGameScreen(role);
     };
 
@@ -524,7 +624,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     choiceButtons.forEach(setupButtonListeners);
 
-    practiceToggle.addEventListener('click', () => alert('개발중..'));
+        practiceToggle.addEventListener('click', () => {
+        isPracticeMode = !isPracticeMode;
+        localStorage.setItem('isPracticeMode', isPracticeMode);
+        practiceToggle.textContent = `연습모드: ${isPracticeMode ? '켬' : '끔'}`;
+        practiceSettings.classList.toggle('hidden');
+    });
 
     function toggleFullScreen() {
         if (!document.fullscreenElement) {
@@ -579,6 +684,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializeApp = async () => {
         loadKeybinds();
         try {
+            const botConfigResponse = await fetch('bot_config.json');
+            if (!botConfigResponse.ok) throw new Error('Bot config fetch failed');
+            botConfig = await botConfigResponse.json();
+        } catch (error) {
+            console.error("bot_config.json 로딩 실패:", error);
+            alert("봇 설정을 불러오는 데 실패했습니다.");
+        }
+
+        try {
+            const assetMapResponse = await fetch('asset_map.json');
+            if (!assetMapResponse.ok) throw new Error('Asset map fetch failed');
+            assetMap = await assetMapResponse.json();
+        } catch (error) {
+            console.error("asset_map.json 로딩 실패:", error);
+            alert("이미지 정보를 불러오는 데 실패했습니다.");
+        }
+
+        try {
             await preloadImages(imagesToPreload);
         } catch (error) {
             console.error("이미지 로딩 실패:", error);
@@ -590,8 +713,15 @@ document.addEventListener('DOMContentLoaded', () => {
             fullscreenToggle.style.visibility = 'hidden';
         }
 
-        practiceToggle.textContent = `연습모드: 켬`;
-        practiceSettings.classList.remove('hidden');
+        const savedPracticeMode = localStorage.getItem('isPracticeMode');
+        isPracticeMode = savedPracticeMode === null ? true : (savedPracticeMode === 'true');
+        practiceToggle.textContent = `연습모드: ${isPracticeMode ? '켬' : '끔'}`;
+        if (isPracticeMode) {
+            practiceSettings.classList.remove('hidden');
+        } else {
+            practiceSettings.classList.add('hidden');
+        }
+
         const savedLines = localStorage.getItem('practiceLines') || '5';
         const savedTime = localStorage.getItem('practiceTime') || '4';
         linesInput.value = savedLines;

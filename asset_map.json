@@ -1,0 +1,76 @@
+{
+  "tteok": {
+    "White": {
+      "path": "res/tteok/item_thanksgiving_tteok1.png",
+      "korean_name": "흰송편"
+    },
+    "Clam": {
+      "path": "res/tteok/item_thanksgiving_tteok10.png",
+      "korean_name": "조개송편"
+    },
+    "Flower": {
+      "path": "res/tteok/item_thanksgiving_tteok11.png",
+      "korean_name": "꽃송편"
+    },
+    "Pumpkin": {
+      "path": "res/tteok/item_thanksgiving_tteok12.png",
+      "korean_name": "호박송편"
+    },
+    "Fruit": {
+      "path": "res/tteok/item_thanksgiving_tteok13.png",
+      "korean_name": "과일송편"
+    },
+    "Rabbit": {
+      "path": "res/tteok/item_thanksgiving_tteok14.png",
+      "korean_name": "토끼송편"
+    },
+    "Tiger": {
+      "path": "res/tteok/item_thanksgiving_tteok15.png",
+      "korean_name": "호랑이송편"
+    },
+    "Pig": {
+      "path": "res/tteok/item_thanksgiving_tteok16.png",
+      "korean_name": "돼지송편"
+    },
+    "Pink": {
+      "path": "res/tteok/item_thanksgiving_tteok2.png",
+      "korean_name": "분홍송편"
+    },
+    "Wrapper": {
+      "path": "res/tteok/item_thanksgiving_tteok22.png",
+      "korean_name": "보자기송편"
+    },
+    "Manggae_leaf": {
+      "path": "res/tteok/item_thanksgiving_tteok23.png",
+      "korean_name": "망개잎송편"
+    },
+    "Mugwort": {
+      "path": "res/tteok/item_thanksgiving_tteok3.png",
+      "korean_name": "쑥송편"
+    },
+    "Potato": {
+      "path": "res/tteok/item_thanksgiving_tteok4.png",
+      "korean_name": "감자송편"
+    },
+    "Violet_Sweet_Ptato": {
+      "path": "res/tteok/item_thanksgiving_tteok5.png",
+      "korean_name": "자색고구마송편"
+    },
+    "Arrowroot": {
+      "path": "res/tteok/item_thanksgiving_tteok6.png",
+      "korean_name": "칡송편"
+    },
+    "Ramie": {
+      "path": "res/tteok/item_thanksgiving_tteok7.png",
+      "korean_name": "모시송편"
+    },
+    "Acorn": {
+      "path": "res/tteok/item_thanksgiving_tteok8.png",
+      "korean_name": "도토리송편"
+    },
+    "Pine": {
+      "path": "res/tteok/item_thanksgiving_tteok9.png",
+      "korean_name": "송기송편"
+    }
+  }
+}
