@@ -266,7 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const isPlayerTurn = (currentRole === '돼지' && isPigCommand) || (currentRole === '토끼' && !isPigCommand);
 
         if (!isPlayerTurn) {
-            const delay = (botConfig.press_delays_ms && botConfig.press_delays_ms[commandId]) || 150;
+            let delay = (botConfig.press_delays_ms && botConfig.press_delays_ms[commandId]) || 150;
+
+            if (currentGameIndex === 0) {
+                delay += botConfig.initial_reaction_delay_ms || 100;
+            }
+            
             botActionTimeout = setTimeout(() => {
                 handleCorrectInput();
                 processNextCommand();
@@ -655,32 +660,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // SECTION 5: APP INITIALIZATION
     // =================================================================
 
-    const imagesToPreload = [
-        'res/roomskin_none_background.png',
-        'res/thanksgiving_room_command_item.png',
-        'res/thanksgiving_room_container_top.png',
-        'res/thanksgiving_room_container.9.png',
-        'res/thanksgiving_room_exit_unpressed.png',
-        'res/thanksgiving_room_header_command_box.png',
-        'res/thanksgiving_room_time_bar.png',
-        'res/thanksgiving_room_time_gauge.png',
-        'res/thanksgiving_room_time_icon.png',
-        // Pig Commands
-        'res/thanksgiving2024_room_command1.png', 'res/thanksgiving2024_room_command1_off.png', 'res/thanksgiving2024_room_command1_pressed.png', 'res/thanksgiving2024_room_command1_unpressed.png',
-        'res/thanksgiving2024_room_command2.png', 'res/thanksgiving2024_room_command2_off.png', 'res/thanksgiving2024_room_command2_pressed.png', 'res/thanksgiving2024_room_command2_unpressed.png',
-        'res/thanksgiving2024_room_command3.png', 'res/thanksgiving2024_room_command3_off.png', 'res/thanksgiving2024_room_command3_pressed.png', 'res/thanksgiving2024_room_command3_unpressed.png',
-        'res/thanksgiving2024_room_command6.png', 'res/thanksgiving2024_room_command6_off.png', 'res/thanksgiving2024_room_command6_pressed.png', 'res/thanksgiving2024_room_command6_unpressed.png',
-        // Rabbit Commands
-        'res/thanksgiving_room_command4.png', 'res/thanksgiving_room_command4_off.png', 'res/thanksgiving_room_command4_pressed.png', 'res/thanksgiving_room_command4_unpressed.png',
-        'res/thanksgiving_room_command5.png', 'res/thanksgiving_room_command5_off.png', 'res/thanksgiving_room_command5_pressed.png', 'res/thanksgiving_room_command5_unpressed.png',
-        'res/thanksgiving_room_command7.png', 'res/thanksgiving_room_command7_off.png', 'res/thanksgiving_room_command7_pressed.png', 'res/thanksgiving_room_command7_unpressed.png',
-        'res/thanksgiving_room_command8.png', 'res/thanksgiving_room_command8_off.png', 'res/thanksgiving_room_command8_pressed.png', 'res/thanksgiving_room_command8_unpressed.png',
-        ...pigGlowFrames,
-        ...rabbitGlowFrames,
-        ...pigMissFrames,
-        ...rabbitMissFrames
-    ];
-
     const initializeApp = async () => {
         loadKeybinds();
         try {
@@ -701,8 +680,43 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("이미지 정보를 불러오는 데 실패했습니다.");
         }
 
+        const staticImages = [
+            'res/roomskin_none_background.png',
+            'res/thanksgiving_room_command_item.png',
+            'res/thanksgiving_room_container_top.png',
+            'res/thanksgiving_room_container.9.png',
+            'res/thanksgiving_room_exit_unpressed.png',
+            'res/thanksgiving_room_header_command_box.png',
+            'res/thanksgiving_room_time_bar.png',
+            'res/thanksgiving_room_time_gauge.png',
+            'res/thanksgiving_room_time_icon.png',
+            'res/thanksgiving_room_tteok_recipe_bg.png',
+            'res/thanksgiving_room_tteok_recipe_box.9.png',
+            // Pig Commands
+            'res/thanksgiving2024_room_command1.png', 'res/thanksgiving2024_room_command1_off.png', 'res/thanksgiving2024_room_command1_pressed.png', 'res/thanksgiving2024_room_command1_unpressed.png',
+            'res/thanksgiving2024_room_command2.png', 'res/thanksgiving2024_room_command2_off.png', 'res/thanksgiving2024_room_command2_pressed.png', 'res/thanksgiving2024_room_command2_unpressed.png',
+            'res/thanksgiving2024_room_command3.png', 'res/thanksgiving2024_room_command3_off.png', 'res/thanksgiving2024_room_command3_pressed.png', 'res/thanksgiving2024_room_command3_unpressed.png',
+            'res/thanksgiving2024_room_command6.png', 'res/thanksgiving2024_room_command6_off.png', 'res/thanksgiving2024_room_command6_pressed.png', 'res/thanksgiving2024_room_command6_unpressed.png',
+            // Rabbit Commands
+            'res/thanksgiving_room_command4.png', 'res/thanksgiving_room_command4_off.png', 'res/thanksgiving_room_command4_pressed.png', 'res/thanksgiving_room_command4_unpressed.png',
+            'res/thanksgiving_room_command5.png', 'res/thanksgiving_room_command5_off.png', 'res/thanksgiving_room_command5_pressed.png', 'res/thanksgiving_room_command5_unpressed.png',
+            'res/thanksgiving_room_command7.png', 'res/thanksgiving_room_command7_off.png', 'res/thanksgiving_room_command7_pressed.png', 'res/thanksgiving_room_command7_unpressed.png',
+            'res/thanksgiving_room_command8.png', 'res/thanksgiving_room_command8_off.png', 'res/thanksgiving_room_command8_pressed.png', 'res/thanksgiving_room_command8_unpressed.png',
+        ];
+
+        const dynamicTteokImages = assetMap.tteok ? Object.values(assetMap.tteok).map(tteok => tteok.path) : [];
+
+        const allImagesToPreload = [
+            ...staticImages,
+            ...dynamicTteokImages,
+            ...pigGlowFrames,
+            ...rabbitGlowFrames,
+            ...pigMissFrames,
+            ...rabbitMissFrames
+        ];
+
         try {
-            await preloadImages(imagesToPreload);
+            await preloadImages(allImagesToPreload);
         } catch (error) {
             console.error("이미지 로딩 실패:", error);
         }

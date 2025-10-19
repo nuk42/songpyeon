@@ -1,4 +1,5 @@
 {
+  "initial_reaction_delay_ms": 100,
   "press_delays_ms": {
     "1": 50,
     "2": 50,
