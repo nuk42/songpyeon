@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let botConfig = {};
     let botActionTimeout = null;
     let assetMap = {};
+    let patternManifest = {}; // Added patternManifest
 
     // =================================================================
     // SECTION 1: CORE HELPER FUNCTIONS
@@ -204,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        updateGlowIndicator();
+        setTimeout(updateGlowIndicator, 50); // Add a small delay
     };
 
     const startNewRound = () => {
@@ -229,7 +230,14 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('실패');
         }
 
-        nextRoundTimeoutId = setTimeout(startNewRound, 1000);
+        if (isPracticeMode) {
+            nextRoundTimeoutId = setTimeout(startNewRound, 1000);
+        } else {
+            const timeLimit = 4000; // 4 seconds in milliseconds for non-practice mode
+            const elapsedTime = performance.now() - roundStartTime;
+            const remainingTime = Math.max(0, timeLimit - elapsedTime);
+            nextRoundTimeoutId = setTimeout(startNewRound, remainingTime);
+        }
     };
 
     const handleCorrectInput = () => {
@@ -414,6 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showGameScreen = async (role) => {
+        let targetTteokKey; // Declare targetTteokKey here
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
         if (botActionTimeout) clearTimeout(botActionTimeout);
@@ -427,10 +436,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isPracticeMode) {
             const lines = parseInt(linesInput.value, 10);
             pattern = patternGenerator.generateFullPattern(lines * 6, role);
+            targetTteokKey = 'Pig'; // Assign default for practice mode
         } else {
             try {
-                const response = await fetch(`patterns/Pig.txt`);
-                if (!response.ok) throw new Error('패턴 파일을 불러올 수 없습니다: ' + response.statusText);
+                const tteokKeys = Object.keys(patternManifest);
+                if (tteokKeys.length === 0) {
+                    throw new Error('patternManifest에 정의된 송편이 없습니다.');
+                }
+                const randomTteokKey = tteokKeys[Math.floor(Math.random() * tteokKeys.length)];
+                
+                const patternFiles = patternManifest[randomTteokKey];
+                if (!patternFiles || patternFiles.length === 0) {
+                    throw new Error(`${randomTteokKey}에 대한 패턴 파일이 patternManifest에 정의되어 있지 않습니다.`);
+                }
+                const randomPatternFile = patternFiles[Math.floor(Math.random() * patternFiles.length)];
+                const patternFilePath = `patterns/${randomTteokKey}/${randomPatternFile}`;
+
+                const response = await fetch(patternFilePath);
+                if (!response.ok) throw new Error(`패턴 파일을 불러올 수 없습니다: ${patternFilePath} - ` + response.statusText);
                 const patternString = await response.text();
                 const parsedPattern = parsePatternString(patternString.trim());
                 
@@ -438,9 +461,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 for(let i = 0; i < parsedPattern.length; i += 6) {
                     pattern.push(parsedPattern.slice(i, i + 6));
                 }
+                targetTteokKey = randomTteokKey; // Set targetTteokKey here
             } catch (error) {
                 console.error("패턴 로딩 실패:", error);
-                alert("패턴 파일(patterns/Pig.txt)을 불러오는 데 실패했습니다.");
+                alert("패턴 파일을 불러오는 데 실패했습니다. " + error.message);
                 showMainScreen(); // Go back to main screen on error
                 return;
             }
@@ -462,7 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
         
-        const targetTteokKey = 'Pig';
         const targetTteok = (assetMap.tteok && assetMap.tteok[targetTteokKey]) ? assetMap.tteok[targetTteokKey] : null;
 
         const recipeContainerHTML = !isPracticeMode && targetTteok ? `
@@ -678,6 +701,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("asset_map.json 로딩 실패:", error);
             alert("이미지 정보를 불러오는 데 실패했습니다.");
+        }
+
+        try {
+            const patternManifestResponse = await fetch('pattern_manifest.json');
+            if (!patternManifestResponse.ok) throw new Error('Pattern manifest fetch failed');
+            patternManifest = await patternManifestResponse.json();
+        } catch (error) {
+            console.error("pattern_manifest.json 로딩 실패:", error);
+            alert("패턴 매니페스트를 불러오는 데 실패했습니다.");
         }
 
         const staticImages = [
