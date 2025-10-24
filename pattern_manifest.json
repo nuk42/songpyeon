@@ -1,3 +1,20 @@
 {
-  "Wrapper": ["1.txt", "2.txt"]
+  "Acorn": ["2.txt"],
+  "Arrowroot": ["1.txt", "2.txt"],
+  "Clam": ["1.txt", "2.txt"],
+  "Flower": ["1.txt", "2.txt"],
+  "Fruit": ["1.txt", "2.txt"],
+  "Mugwort": ["1.txt"],
+  "Pig": ["1.txt", "2.txt"],
+  "Pine": ["2.txt"],
+  "Pink": ["1.txt"],
+  "Potato": ["1.txt"],
+  "Pumpkin": ["1.txt", "2.txt"],
+  "Rabbit": ["1.txt", "2.txt"],
+  "Ramie": ["1.txt", "2.txt"],
+  "Tiger": ["1.txt", "2.txt"],
+  "Violet_Sweet_Ptato": ["1.txt"],
+  "White": ["1.txt"],
+  "Wrapper": ["1.txt", "2.txt"],
+  "Manggae_leaf": ["1.txt", "2.txt"]
 }

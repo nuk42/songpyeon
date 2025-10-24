@@ -15,6 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPracticeMode = true;
     let lastValidLines, lastValidTime;
     let gamePattern = [];
+    let currentRound = 0; // Added currentRound variable
+
+    let patternManifest = {};
+    let difficultyConfig = {};
+    let roundConfig = {}; // Added roundConfig
+
     let currentGameIndex = 0;
     let gameFailed = false;
     let currentRole = null;
@@ -37,7 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let botConfig = {};
     let botActionTimeout = null;
     let assetMap = {};
-    let patternManifest = {}; // Added patternManifest
+    let tteokDifficultyConfig = {};
+    let defaultRabbitTransformProbabilityFactor = 0.7;
+    let playerLives = 5;
+    let lifeLostInPreviousRound = false;
 
     // =================================================================
     // SECTION 1: CORE HELPER FUNCTIONS
@@ -208,16 +217,52 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(updateGlowIndicator, 50); // Add a small delay
     };
 
+    const updateHeartDisplay = () => {
+        const heartIcons = document.querySelectorAll('#heart-container .heart-icon');
+        for (let i = 0; i < heartIcons.length; i++) {
+            if (i < playerLives) {
+                heartIcons[i].src = 'res/thanksgiving_room_heart.png';
+            } else {
+                heartIcons[i].src = 'res/thanksgiving_room_heart_off.png';
+            }
+        }
+    };
+
+    const onGameOver = () => {
+        if (roundTimer) clearTimeout(roundTimer);
+        if (botActionTimeout) clearTimeout(botActionTimeout);
+        if (glowAnimationInterval) clearInterval(glowAnimationInterval);
+        if (missAnimationInterval) clearInterval(missAnimationInterval);
+        alert(`게임 결과: ${currentRound} 라운드`);
+        showMainScreen();
+    };
+
     const startNewRound = () => {
         if (roundTimer) clearTimeout(roundTimer);
+        // Add life deduction logic here
+        if (!isPracticeMode && lifeLostInPreviousRound) {
+            playerLives--;
+            updateHeartDisplay();
+            if (playerLives <= 0) {
+                onGameOver();
+                return; // Stop if game over
+            }
+            lifeLostInPreviousRound = false; // Reset flag
+        }
         showGameScreen(currentRole);
     };
+
 
 
     const onRoundEnd = (isSuccess) => {
         if (roundTimer) clearTimeout(roundTimer);
         if (botActionTimeout) clearTimeout(botActionTimeout);
         gameFailed = true;
+
+        // Calculate the target time for the next round to start
+        const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) * 1000 : 4000; // Get the actual time limit for the round
+        const targetNextRoundStartTime = roundStartTime + timeLimit;
+        const delayUntilNextRound = Math.max(0, targetNextRoundStartTime - performance.now());
 
         if (isSuccess) {
             if (glowAnimationInterval) clearInterval(glowAnimationInterval);
@@ -226,17 +271,21 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('성공');
             const scrollContent = gameScreen.querySelector('.scroll-content');
             if (scrollContent) scrollContent.style.display = 'none';
-        } else {
+            if (!isPracticeMode) {
+                nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
+            } else {
+                // In practice mode, just restart the round after a short delay
+                nextRoundTimeoutId = setTimeout(startNewRound, 1000); // Restart round after a short delay
+            }
+        } else { // Round failed (e.g., timeout)
             showToast('실패');
-        }
-
-        if (isPracticeMode) {
-            nextRoundTimeoutId = setTimeout(startNewRound, 1000);
-        } else {
-            const timeLimit = 4000; // 4 seconds in milliseconds for non-practice mode
-            const elapsedTime = performance.now() - roundStartTime;
-            const remainingTime = Math.max(0, timeLimit - elapsedTime);
-            nextRoundTimeoutId = setTimeout(startNewRound, remainingTime);
+            if (!isPracticeMode) {
+                lifeLostInPreviousRound = true;
+                nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
+            } else {
+                // In practice mode, just restart the round after a short delay
+                nextRoundTimeoutId = setTimeout(startNewRound, 1000); // Restart round after a short delay
+            }
         }
     };
 
@@ -300,6 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (commandId !== expectedCommand) {
             showMissAnimation();
+            if (!isPracticeMode) {
+                lifeLostInPreviousRound = true;
+            }
             onRoundEnd(false);
             return;
         }
@@ -389,10 +441,145 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roundTimer) clearTimeout(roundTimer);
         if (botActionTimeout) clearTimeout(botActionTimeout);
         if (nextRoundTimeoutId) clearTimeout(nextRoundTimeoutId);
+        currentRound = 0;
+        playerLives = 5; // Reset lives on returning to main screen
         mainContent.classList.remove('hidden');
         footerSettings.classList.remove('hidden');
         gameScreen.classList.add('hidden');
         gameScreen.innerHTML = '';
+    };
+
+
+
+    const adjustPatternDifficulty = (patternString, patternExtensionLevel) => {
+        let segmentsToExtend = [];
+        let tempPatternString = patternString;
+        let match;
+        const regex = /(Rp|tt)/g;
+
+        // Find all extendable segments and their positions
+        while ((match = regex.exec(tempPatternString)) !== null) {
+            segmentsToExtend.push({ type: match[0], index: match.index });
+        }
+
+        if (segmentsToExtend.length === 0 || patternExtensionLevel <= 0) {
+            return patternString; // No segments to extend or no extension allowed
+        }
+
+        // Calculate total extension budget
+        const totalExtensionBudget = Math.floor(Math.random() * patternExtensionLevel);
+
+        // --- New Distribution Logic ---
+        let extensionCounts = new Array(segmentsToExtend.length).fill(0);
+        let remainingBudget = totalExtensionBudget;
+
+        // Calculate maximum allowed extension for a single segment
+        // Constraint: no single extended part is more than 1:3 longer than the sum of all other extended parts.
+        // This translates to: max 1/4 of total budget for any single segment.
+        let maxExtensionPerSegment = totalExtensionBudget; // Default to no specific limit
+        if (totalExtensionBudget >= 4) { // Apply constraint only if budget is large enough for it to be meaningful
+            maxExtensionPerSegment = Math.floor(totalExtensionBudget / 4);
+        }
+
+        // Distribute budget iteratively, respecting the maxExtensionPerSegment constraint
+        while (remainingBudget > 0) {
+            let candidates = [];
+            for (let k = 0; k < segmentsToExtend.length; k++) {
+                if (extensionCounts[k] < maxExtensionPerSegment) {
+                    candidates.push(k);
+                }
+            }
+
+            if (candidates.length === 0) {
+                // All segments have reached their individual max, but budget remains.
+                // This means the constraint is too strict for the remaining budget or segments. 
+                // Distribute remaining budget to any segment to ensure total budget is used.
+                if (segmentsToExtend.length > 0) {
+                    let randomIndex = Math.floor(Math.random() * segmentsToExtend.length);
+                    extensionCounts[randomIndex]++;
+                    remainingBudget--;
+                } else {
+                    break; // No segments to distribute to
+                }
+            } else {
+                let randomIndex = candidates[Math.floor(Math.random() * candidates.length)];
+                extensionCounts[randomIndex]++;
+                remainingBudget--;
+            }
+        }
+        // --- End New Distribution Logic ---
+
+        // Reconstruct the pattern string with distributed extensions
+        let adjustedPattern = "";
+        let lastIndex = 0;
+        let segmentIndex = 0;
+
+        for (let i = 0; i < patternString.length; i++) {
+            let isExtendedSegment = false;
+            for (let j = 0; j < segmentsToExtend.length; j++) {
+                if (segmentsToExtend[j].index === i) {
+                    adjustedPattern += patternString.substring(lastIndex, i);
+                    adjustedPattern += segmentsToExtend[j].type;
+                    for (let k = 0; k < extensionCounts[segmentIndex]; k++) {
+                        adjustedPattern += segmentsToExtend[j].type;
+                    }
+                    i += segmentsToExtend[j].type.length - 1; // Advance i by segment length - 1
+                    lastIndex = i + 1;
+                    segmentIndex++;
+                    isExtendedSegment = true;
+                    break;
+                }
+            }
+            if (!isExtendedSegment && i >= lastIndex) {
+                adjustedPattern += patternString[i];
+                lastIndex = i + 1;
+            }
+        }
+        adjustedPattern += patternString.substring(lastIndex);
+
+        return adjustedPattern;
+    };
+
+    const transformRabbitPatterns = (patternString, rabbitTransformProbabilityFactor) => {
+        let transformedPattern = "";
+        let i = 0;
+        while (i < patternString.length) {
+            let processed = false;
+
+            // 1. Prioritize checking for tttt
+            if (patternString.substring(i, i + 4) === 'tttt') {
+                if (Math.random() < rabbitTransformProbabilityFactor) {
+                    transformedPattern += 'rr';
+                } else {
+                    transformedPattern += 'tttt';
+                }
+                i += 4;
+                processed = true;
+            }
+
+            // 2. If tttt was not matched, check for tttttt
+            if (!processed && patternString.substring(i, i + 6) === 'tttttt') {
+                if (Math.random() < rabbitTransformProbabilityFactor) {
+                    transformedPattern += 'rttr';
+                } else {
+                    transformedPattern += 'tttttt';
+                }
+                i += 6;
+                processed = true;
+            }
+
+            // 3. If neither tttt nor tttttt was matched, handle single characters or tt pairs
+            if (!processed) {
+                if (patternString[i] === 't' && patternString[i+1] === 't') {
+                    transformedPattern += 'tt'; // Keep the tt pair
+                    i += 2;
+                } else {
+                    transformedPattern += patternString[i]; // Append single character
+                    i++;
+                }
+            }
+        }
+        return transformedPattern;
     };
 
     const parsePatternString = (patternString) => {
@@ -433,13 +620,33 @@ document.addEventListener('DOMContentLoaded', () => {
         gameScreen.classList.remove('hidden');
         
         let pattern; // This will be an array of row arrays
+
         if (isPracticeMode) {
             const lines = parseInt(linesInput.value, 10);
             pattern = patternGenerator.generateFullPattern(lines * 6, role);
             targetTteokKey = 'Pig'; // Assign default for practice mode
         } else {
+            currentRound++; // Increment round counter
+            const roundDisplay = document.createElement('div');
+            roundDisplay.id = 'round-display';
+            roundDisplay.textContent = `Round ${currentRound}`;
+
             try {
-                const tteokKeys = Object.keys(patternManifest);
+                // Determine available tteok for the current round
+                let availableTteokForRound = [];
+                for (const config of roundConfig.roundTteok) {
+                    const [start, end] = config.rounds.split('-').map(s => parseInt(s, 10));
+                    if (currentRound >= start && (isNaN(end) || currentRound <= end)) {
+                        availableTteokForRound = config.availableTteok;
+                        break;
+                    }
+                }
+
+                if (availableTteokForRound.length === 0) {
+                    throw new Error(`No tteok configured for round ${currentRound}`);
+                }
+
+                const tteokKeys = Object.keys(patternManifest).filter(key => availableTteokForRound.includes(key));
                 if (tteokKeys.length === 0) {
                     throw new Error('patternManifest에 정의된 송편이 없습니다.');
                 }
@@ -455,13 +662,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch(patternFilePath);
                 if (!response.ok) throw new Error(`패턴 파일을 불러올 수 없습니다: ${patternFilePath} - ` + response.statusText);
                 const patternString = await response.text();
-                const parsedPattern = parsePatternString(patternString.trim());
+
+                let currentPatternExtensionLevel = 1; // Default fallback
+                let currentRabbitTransformProbabilityFactor = defaultRabbitTransformProbabilityFactor; // Use global default
+
+                // Get default difficulty from progression
+                for (const config of tteokDifficultyConfig.default_difficulty_progression) {
+                    const [start, end] = config.rounds.split('-').map(s => parseInt(s, 10));
+                    if (currentRound >= start && (isNaN(end) || currentRound <= end)) {
+                        currentPatternExtensionLevel = config.pattern_extension_level;
+                        // rabbit_transform_probability_factor is no longer in default_difficulty_progression
+                        break;
+                    }
+                }
+
+                // Apply tteok-specific overrides if they exist
+                const tteokConfig = tteokDifficultyConfig.tteok_difficulty[randomTteokKey];
+                if (tteokConfig && tteokConfig.overrides) {
+                    const tteokOverrides = tteokConfig.overrides;
+
+                    if (typeof tteokOverrides.pattern_extension_level === 'number') {
+                        currentPatternExtensionLevel = tteokOverrides.pattern_extension_level;
+                    } else if (Array.isArray(tteokOverrides.pattern_extension_level)) {
+                        for (const override of tteokOverrides.pattern_extension_level) {
+                            const [start, end] = override.rounds.split('-').map(s => parseInt(s, 10));
+                            if (currentRound >= start && (isNaN(end) || currentRound <= end)) {
+                                currentPatternExtensionLevel = override.value;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (typeof tteokOverrides.rabbit_transform_probability_factor === 'number') {
+                        currentRabbitTransformProbabilityFactor = tteokOverrides.rabbit_transform_probability_factor;
+                    } else if (Array.isArray(tteokOverrides.rabbit_transform_probability_factor)) {
+                        for (const override of tteokOverrides.rabbit_transform_probability_factor) {
+                            const [start, end] = override.rounds.split('-').map(s => parseInt(s, 10));
+                            if (currentRound >= start && (isNaN(end) || currentRound <= end)) {
+                                currentRabbitTransformProbabilityFactor = override.value;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                const adjustedPatternString = adjustPatternDifficulty(patternString.trim(), currentPatternExtensionLevel);
+                const transformedPatternString = transformRabbitPatterns(adjustedPatternString, currentRabbitTransformProbabilityFactor);
+                const parsedPattern = parsePatternString(transformedPatternString);
                 
                 pattern = [];
                 for(let i = 0; i < parsedPattern.length; i += 6) {
                     pattern.push(parsedPattern.slice(i, i + 6));
                 }
                 targetTteokKey = randomTteokKey; // Set targetTteokKey here
+
             } catch (error) {
                 console.error("패턴 로딩 실패:", error);
                 alert("패턴 파일을 불러오는 데 실패했습니다. " + error.message);
@@ -474,6 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentGameIndex = 0;
         gameFailed = false;
 
+        // Common rendering logic for both practice and non-practice modes
         const getIconPath=(id)=>{const s1=[1,2,3,6],s2=[4,5,7,8];if(s1.includes(id))return`res/thanksgiving2024_room_command${id}.png`;if(s2.includes(id))return`res/thanksgiving_room_command${id}.png`;return'';};
         const commandBoxesHTML = pattern.map(row => `
             <div class="command-box">
@@ -488,15 +743,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const targetTteok = (assetMap.tteok && assetMap.tteok[targetTteokKey]) ? assetMap.tteok[targetTteokKey] : null;
 
+
         const recipeContainerHTML = !isPracticeMode && targetTteok ? `
             <div class="recipe-container">
                 <img src="res/thanksgiving_room_tteok_recipe_bg.png" class="recipe-bg">
-                <img src="${targetTteok.path}" class="recipe-tteok-image">
                 <img src="res/thanksgiving_room_tteok_recipe_box.9.png" class="recipe-box">
+                <img src="${targetTteok.path}" class="recipe-tteok-image">
                 <div class="recipe-tteok-name">${targetTteok.korean_name}</div>
             </div>
         ` : '';
 
+        // Now gameScreen.innerHTML can be set
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -516,6 +773,27 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="floor-container"></div>`;
         
+                        const ceilingElement = gameScreen.querySelector('.ceiling');
+                        if (ceilingElement) {
+                            if (!isPracticeMode) {
+                                const roundDisplayElement = document.createElement('div');
+                                roundDisplayElement.id = 'round-display';
+                                roundDisplayElement.textContent = `Round ${currentRound}`;
+                                ceilingElement.appendChild(roundDisplayElement);
+            
+                                // Always create 5 heart icons, and update their display based on playerLives
+                                const heartContainer = document.createElement('div');
+                                heartContainer.id = 'heart-container';
+                                const maxLives = 5; // Assuming max lives is 5
+                                for (let i = 0; i < maxLives; i++) {
+                                    const heart = document.createElement('img');
+                                    heart.className = 'heart-icon';
+                                    heartContainer.appendChild(heart);
+                                }
+                                ceilingElement.appendChild(heartContainer);
+                                updateHeartDisplay(); // Update display after creating all hearts
+                            }
+                        }
         renderFloorButtons(role);
         positionGlowReliably();
 
@@ -547,6 +825,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if(isNaN(lines)||isNaN(time)||lines<1||time<1){alert("유효하지 않은 값입니다. 1 이상의 숫자를 입력하세요.");return;}
         }
         showGameScreen(role);
+    };
+
+    // Function to allow starting from a specific round via console
+    window.setCurrentRound = (roundNum) => {
+        if (typeof roundNum === 'number' && roundNum >= 1) {
+            currentRound = roundNum - 1; // Will be incremented to roundNum in showGameScreen
+            console.log(`다음 라운드는 ${roundNum} 라운드부터 시작됩니다.`);
+        } else {
+            console.error("유효하지 않은 라운드 번호입니다. 1 이상의 숫자를 입력해주세요.");
+        }
     };
 
     // =================================================================
@@ -707,6 +995,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const patternManifestResponse = await fetch('pattern_manifest.json');
             if (!patternManifestResponse.ok) throw new Error('Pattern manifest fetch failed');
             patternManifest = await patternManifestResponse.json();
+
+            const tteokDifficultyConfigResponse = await fetch('tteok_difficulty_config.json');
+            if (!tteokDifficultyConfigResponse.ok) throw new Error('Tteok difficulty config fetch failed');
+            tteokDifficultyConfig = await tteokDifficultyConfigResponse.json();
+            defaultRabbitTransformProbabilityFactor = tteokDifficultyConfig.default_rabbit_transform_probability_factor || 0.7;
+
+            const roundConfigResponse = await fetch('round_config.json');
+            if (!roundConfigResponse.ok) throw new Error('Round config fetch failed');
+            roundConfig = await roundConfigResponse.json();
+
+
         } catch (error) {
             console.error("pattern_manifest.json 로딩 실패:", error);
             alert("패턴 매니페스트를 불러오는 데 실패했습니다.");
@@ -724,6 +1023,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'res/thanksgiving_room_time_icon.png',
             'res/thanksgiving_room_tteok_recipe_bg.png',
             'res/thanksgiving_room_tteok_recipe_box.9.png',
+            'res/thanksgiving_room_heart.png',
+            'res/thanksgiving_room_heart_off.png',
             // Pig Commands
             'res/thanksgiving2024_room_command1.png', 'res/thanksgiving2024_room_command1_off.png', 'res/thanksgiving2024_room_command1_pressed.png', 'res/thanksgiving2024_room_command1_unpressed.png',
             'res/thanksgiving2024_room_command2.png', 'res/thanksgiving2024_room_command2_off.png', 'res/thanksgiving2024_room_command2_pressed.png', 'res/thanksgiving2024_room_command2_unpressed.png',

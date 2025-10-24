@@ -149,6 +149,34 @@ img {
     background-color: red; /* Restored background color */
 }
 
+#round-display {
+    position: absolute;
+    top: 30%; /* Position near the top */
+    left: 50%;
+    transform: translateX(-50%); /* Center horizontally */
+    font-size: 3em; /* Large font size */
+    color: black; /* Black color */
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 20; /* Ensure it's above other elements, including timer */
+    white-space: nowrap;
+}
+
+#heart-container {
+    position: absolute;
+    top: 20%; /* Adjust as needed to be below round-display */
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.1rem; /* Reduced space between hearts */
+    z-index: 20;
+}
+
+.heart-icon {
+    width: 1.5rem; /* Adjust size as needed */
+    height: auto;
+}
+
 .exit-button {
     position: absolute;
     top: 2.5rem;
@@ -323,7 +351,6 @@ img {
         display: block;
     }
 }
-
 
 
 .choice-button, .floor-button, .exit-button, #practice-toggle {

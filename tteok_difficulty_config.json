@@ -1,0 +1,37 @@
+{
+  "default_rabbit_transform_probability_factor": 0.7,
+  "default_difficulty_progression": [
+    { "rounds": "1-5", "pattern_extension_level": 1 },
+    { "rounds": "6-10", "pattern_extension_level": 4 },
+    { "rounds": "11-30", "pattern_extension_level": 7 },
+    { "rounds": "31-40", "pattern_extension_level": 10 },
+    { "rounds": "41-50", "pattern_extension_level": 13 },
+    { "rounds": "51-60", "pattern_extension_level": 16 },
+    { "rounds": "61-70", "pattern_extension_level": 19 },
+    { "rounds": "71-80", "pattern_extension_level": 22 },
+    { "rounds": "81-90", "pattern_extension_level": 25 },
+    { "rounds": "91-100", "pattern_extension_level": 28 },
+    { "rounds": "101-", "pattern_extension_level": 31 }
+  ],
+  "tteok_difficulty": {
+    "White": {},
+    "Clam": {},
+    "Flower": {},
+    "Pumpkin": {},
+    "Fruit": {},
+    "Rabbit": {},
+    "Tiger": {},
+    "Pig": {},
+    "Pink": {},
+    "Wrapper": {},
+    "Manggae_leaf": {},
+    "Mugwort": {},
+    "Potato": {},
+    "Violet_Sweet_Ptato": {},
+    "Arrowroot": {},
+    "Ramie": {},
+    "Acorn": {},
+    "Pine": {},
+    "Manggae_leaf": {}
+  }
+}
