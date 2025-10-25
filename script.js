@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadingOverlay = document.getElementById('loading-overlay');
 
     let isPracticeMode = true;
+    let isMashPracticeMode = false;
+    let longPressTimer = null;
+    let mashSuccessTimer = null;
     let lastValidLines, lastValidTime;
     let gamePattern = [];
     let currentRound = 0; // Added currentRound variable
@@ -240,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startNewRound = () => {
         if (roundTimer) clearTimeout(roundTimer);
         // Add life deduction logic here
-        if (!isPracticeMode && lifeLostInPreviousRound) {
+        if (!isPracticeMode && !isMashPracticeMode && lifeLostInPreviousRound) {
             playerLives--;
             updateHeartDisplay();
             if (playerLives <= 0) {
@@ -270,16 +273,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (glowElement) glowElement.classList.add('hidden');
             showToast('성공');
             const scrollContent = gameScreen.querySelector('.scroll-content');
-            if (scrollContent) scrollContent.style.display = 'none';
-            if (!isPracticeMode) {
-                nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
+                    if (scrollContent) scrollContent.style.display = 'none';
+                    if (!isPracticeMode && !isMashPracticeMode) {                nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
             } else {
                 // In practice mode, just restart the round after a short delay
                 nextRoundTimeoutId = setTimeout(startNewRound, 1000); // Restart round after a short delay
             }
         } else { // Round failed (e.g., timeout)
             showToast('실패');
-            if (!isPracticeMode) {
+            if (!isPracticeMode && !isMashPracticeMode) {
                 lifeLostInPreviousRound = true;
                 nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
             } else {
@@ -312,7 +314,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameFailed) return;
 
         if (currentGameIndex >= gamePattern.length) {
-            onRoundEnd(true);
+            if (isMashPracticeMode) {
+                // Pattern complete, start 200ms timer to check for extra inputs.
+                mashSuccessTimer = setTimeout(() => {
+                    onRoundEnd(true); // Success if timer completes.
+                }, 200);
+            } else {
+                onRoundEnd(true); // Normal success for other modes.
+            }
             return;
         }
 
@@ -338,6 +347,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handlePlayerInput = (commandId) => {
         if (gameFailed) return;
+
+        // Start timer on first press in mash mode
+        if (isMashPracticeMode && currentGameIndex === 0) {
+            if (commandId === gamePattern[0]) { // Only start on correct press
+                const timeLimitInSeconds = gamePattern.length * 0.1; // 100ms per command
+                roundStartTime = performance.now();
+
+                if(roundTimer) clearTimeout(roundTimer);
+                roundTimer = setTimeout(() => {
+                    if (gameFailed) return;
+                    onRoundEnd(false);
+                }, timeLimitInSeconds * 1000);
+
+                const gauge = gameScreen.querySelector('.timer-gauge');
+                if (gauge) {
+                    gauge.style.transition = 'none';
+                    gauge.style.width = '100%';
+                    gauge.offsetHeight; // Force reflow
+                    gauge.style.transition = `width ${timeLimitInSeconds}s linear`;
+                    gauge.style.width = '0%';
+                }
+            }
+        }
+
+
+        if (isMashPracticeMode && currentGameIndex >= gamePattern.length) {
+            // Player has finished the pattern and is pressing extra keys.
+            if (mashSuccessTimer) {
+                clearTimeout(mashSuccessTimer);
+                mashSuccessTimer = null;
+            }
+            onRoundEnd(false); // This is a failure.
+            return;
+        }
 
         const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) * 1000 : 4000;
         if (performance.now() - roundStartTime > timeLimit) {
@@ -441,8 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roundTimer) clearTimeout(roundTimer);
         if (botActionTimeout) clearTimeout(botActionTimeout);
         if (nextRoundTimeoutId) clearTimeout(nextRoundTimeoutId);
+    if (mashSuccessTimer) clearTimeout(mashSuccessTimer);
         currentRound = 0;
         playerLives = 5; // Reset lives on returning to main screen
+        isMashPracticeMode = false;
         mainContent.classList.remove('hidden');
         footerSettings.classList.remove('hidden');
         gameScreen.classList.add('hidden');
@@ -611,9 +656,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const showGameScreen = async (role) => {
         let targetTteokKey; // Declare targetTteokKey here
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
-        if (missAnimationInterval) clearInterval(missAnimationInterval);
-        if (botActionTimeout) clearTimeout(botActionTimeout);
-        currentRole = role;
+            if (missAnimationInterval) clearInterval(missAnimationInterval);
+            if (botActionTimeout) clearTimeout(botActionTimeout);
+            if (mashSuccessTimer) clearTimeout(mashSuccessTimer);        currentRole = role;
         rebuildRoleKeybinds(role);
         mainContent.classList.add('hidden');
         footerSettings.classList.add('hidden');
@@ -621,7 +666,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let pattern; // This will be an array of row arrays
 
-        if (isPracticeMode) {
+        if (isMashPracticeMode) {
+            const count = (Math.floor(Math.random() * 7) + 2) * 2; // Even number from 4 to 16
+            const mashPattern = Array(count).fill(8);
+            pattern = [];
+            for(let i = 0; i < mashPattern.length; i += 6) {
+                pattern.push(mashPattern.slice(i, i + 6));
+            }
+            targetTteokKey = 'Pig'; // Dummy value, not rendered
+        } else if (isPracticeMode) {
             const lines = parseInt(linesInput.value, 10);
             pattern = patternGenerator.generateFullPattern(lines * 6, role);
             targetTteokKey = 'Pig'; // Assign default for practice mode
@@ -744,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetTteok = (assetMap.tteok && assetMap.tteok[targetTteokKey]) ? assetMap.tteok[targetTteokKey] : null;
 
 
-        const recipeContainerHTML = !isPracticeMode && targetTteok ? `
+        const recipeContainerHTML = !isPracticeMode && !isMashPracticeMode && targetTteok ? `
             <div class="recipe-container">
                 <img src="res/thanksgiving_room_tteok_recipe_bg.png" class="recipe-bg">
                 <img src="res/thanksgiving_room_tteok_recipe_box.9.png" class="recipe-box">
@@ -775,7 +828,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
                         const ceilingElement = gameScreen.querySelector('.ceiling');
                         if (ceilingElement) {
-                            if (!isPracticeMode) {
+                            if (isMashPracticeMode) {
+                                const roundDisplayElement = document.createElement('div');
+                                roundDisplayElement.id = 'round-display';
+                                roundDisplayElement.textContent = '연타 연습';
+                                ceilingElement.appendChild(roundDisplayElement);
+                            } else if (!isPracticeMode) {
                                 const roundDisplayElement = document.createElement('div');
                                 roundDisplayElement.id = 'round-display';
                                 roundDisplayElement.textContent = `Round ${currentRound}`;
@@ -797,21 +855,23 @@ document.addEventListener('DOMContentLoaded', () => {
         renderFloorButtons(role);
         positionGlowReliably();
 
-        if (roundTimer) clearTimeout(roundTimer);
-        const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) : 4;
-        roundStartTime = performance.now();
-        roundTimer = setTimeout(() => {
-            if (gameFailed) return;
-            onRoundEnd(false);
-        }, timeLimit * 1000);
+        if (!isMashPracticeMode) {
+            if (roundTimer) clearTimeout(roundTimer);
+            const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) : 4;
+            roundStartTime = performance.now();
+            roundTimer = setTimeout(() => {
+                if (gameFailed) return;
+                onRoundEnd(false); // Timeout is always a failure now
+            }, timeLimit * 1000);
 
-        const gauge = gameScreen.querySelector('.timer-gauge');
-        if (gauge) {
-            gauge.style.transition = 'none';
-            gauge.style.width = '100%';
-            gauge.offsetHeight; 
-            gauge.style.transition = `width ${timeLimit}s linear`;
-            gauge.style.width = '0%';
+            const gauge = gameScreen.querySelector('.timer-gauge');
+            if (gauge) {
+                gauge.style.transition = 'none';
+                gauge.style.width = '100%';
+                gauge.offsetHeight; 
+                gauge.style.transition = `width ${timeLimit}s linear`;
+                gauge.style.width = '0%';
+            }
         }
 
         processNextCommand();
@@ -938,9 +998,52 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    choiceButtons.forEach(setupButtonListeners);
+    const startMashPracticeMode = () => {
+        isMashPracticeMode = true;
+        showGameScreen('토끼');
+    };
 
-        practiceToggle.addEventListener('click', () => {
+    choiceButtons.forEach(button => {
+        if (button.textContent === '토끼') {
+            const startPress = (e) => {
+                handlePress({ currentTarget: button });
+                longPressTimer = setTimeout(() => {
+                    longPressTimer = null;
+                    startMashPracticeMode();
+                }, 750);
+            };
+
+            const endPress = (e) => {
+                handleRelease({ currentTarget: button });
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    handleActivation({ currentTarget: button });
+                }
+            };
+            
+            const cancelPress = (e) => {
+                handleRelease({ currentTarget: button });
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            };
+
+            button.addEventListener('mousedown', startPress);
+            button.addEventListener('mouseup', endPress);
+            button.addEventListener('mouseleave', cancelPress);
+            
+            button.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(e); }, { passive: false });
+            button.addEventListener('touchend', (e) => { e.preventDefault(); endPress(e); });
+            button.addEventListener('touchcancel', cancelPress);
+
+        } else {
+            setupButtonListeners(button);
+        }
+    });
+
+    practiceToggle.addEventListener('click', () => {
         isPracticeMode = !isPracticeMode;
         localStorage.setItem('isPracticeMode', isPracticeMode);
         practiceToggle.textContent = `연습모드: ${isPracticeMode ? '켬' : '끔'}`;
