@@ -14,6 +14,9 @@
         <div class="loading-text">로딩 중...</div>
     </div>
     <div id="app-container">
+        <div class="ranking-button-container">
+            <button id="ranking-button" class="choice-button">랭킹</button>
+       </div>
         <main class="main-content">
             <div class="button-container">
                 <button class="choice-button">돼지</button>
@@ -21,6 +24,15 @@
             </div>
         </main>
         <div id="game-screen" class="hidden"></div>
+        <div id="ranking-screen" class="hidden">
+            <h1 class="ranking-title">랭킹</h1>
+            <div class="ranking-role-selector">
+                <button class="role-selector-btn active" data-role="돼지">돼지 랭킹</button>
+                <button class="role-selector-btn" data-role="토끼">토끼 랭킹</button>
+            </div>
+            <div id="ranking-list"></div>
+            <button id="back-to-main-button">돌아가기</button>
+        </div>
         <footer class="footer-settings">
             <div id="practice-settings" class="hidden">
                 <div class="setting-item">
@@ -32,10 +44,16 @@
                     <input type="number" id="time-input" min="1" max="999" value="4">
                 </div>
             </div>
+            <div id="nickname-settings" class="hidden">
+                <div class="setting-item">
+                    <label for="nickname-input">닉네임:</label>
+                    <input type="text" id="nickname-input" maxlength="15">
+                </div>
+            </div>
             <div id="practice-toggle">연습모드: 끔</div>
             <div id="fullscreen-toggle" style="cursor: pointer; color: white; margin-top: 10px;">전체화면</div>
         </footer>
     </div>
-    <script src="script.js"></script>
+    <script src="script.js" type="module"></script>
 </body>
 </html>

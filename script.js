@@ -1,9 +1,12 @@
+import gameRecorder from './gameRecorder.js';
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Constants & State ---
     const practiceToggle = document.getElementById('practice-toggle');
     const fullscreenToggle = document.getElementById('fullscreen-toggle');
     const practiceSettings = document.getElementById('practice-settings');
+    const nicknameSettings = document.getElementById('nickname-settings');
+    const nicknameInput = document.getElementById('nickname-input');
     const linesInput = document.getElementById('lines-input');
     const timeInput = document.getElementById('time-input');
     const choiceButtons = document.querySelectorAll('.choice-button');
@@ -11,6 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const footerSettings = document.querySelector('.footer-settings');
     const gameScreen = document.getElementById('game-screen');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const rankingScreen = document.getElementById('ranking-screen');
+    const rankingButton = document.getElementById('ranking-button');
+    const backToMainButton = document.getElementById('back-to-main-button');
+    const rankingButtonContainer = document.querySelector('.ranking-button-container');
 
     let isPracticeMode = true;
     let isMashPracticeMode = false;
@@ -33,6 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let missAnimationInterval = null;
     let scrollAnimationId = null;
     let nextRoundTimeoutId = null;
+    let isReplaying = false;
+    let replayEvents = [];
+    let nextReplayEventTimeout = null;
+    let replayRoundStartTime = 0;
     const pigGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_pig_command_glow${String(i).padStart(2, '0')}.png`);
     const rabbitGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_rabbit_command_glow${String(i).padStart(2, '0')}.png`);
     const pigMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_pig${i}.png`);
@@ -50,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let defaultRabbitTransformProbabilityFactor = 0.7;
     let playerLives = 5;
     let lifeLostInPreviousRound = false;
+    let lifeLostInReplayRound = false;
 
     // =================================================================
     // SECTION 1: CORE HELPER FUNCTIONS
@@ -236,6 +248,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (botActionTimeout) clearTimeout(botActionTimeout);
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
+
+        if (gameRecorder.isRecording()) {
+            const nickname = nicknameInput.value.trim();
+            if (!nickname) {
+                gameRecorder.stop();
+                alert(`게임 결과: ${currentRound} 라운드\n(닉네임이 없어 기록이 저장되지 않았습니다.)`);
+                showMainScreen();
+                return; // Exit without saving
+            }
+
+            const gameData = gameRecorder.getRecording();
+
+            fetch('https://ranking-three-kappa.vercel.app/api/save-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ nickname, data: gameData }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || `HTTP error! status: ${response.status}`) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Game data saved successfully:', data);
+                // showToast('게임 기록이 저장되었습니다.');
+            })
+            .catch(error => {
+                console.error('Error saving game data:', error.message);
+                // showToast(`게임 기록 저장 실패: ${error.message}`);
+            });
+
+            gameRecorder.stop();
+        }
+
         alert(`게임 결과: ${currentRound} 라운드`);
         showMainScreen();
     };
@@ -258,6 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const onRoundEnd = (isSuccess) => {
+        if (gameRecorder.isRecording()) {
+            gameRecorder.add('O', isSuccess ? 'success' : 'fail');
+        }
         if (roundTimer) clearTimeout(roundTimer);
         if (botActionTimeout) clearTimeout(botActionTimeout);
         gameFailed = true;
@@ -291,7 +343,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const handleCorrectInput = () => {
+    const handleCorrectInput = (isPlayer = false, commandId = -1) => {
+        if (gameRecorder.isRecording() && !isReplaying) {
+            const source = isPlayer ? 'p' : 'b';
+            const id = isPlayer ? commandId : gamePattern[currentGameIndex];
+            gameRecorder.add('I', id, source);
+        }
+
         const iconToUpdate = document.querySelectorAll('.command-icon')[currentGameIndex];
         if (iconToUpdate) {
             iconToUpdate.src = iconToUpdate.src.replace('.png', '_off.png');
@@ -311,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const processNextCommand = () => {
-        if (gameFailed) return;
+        if (gameFailed || isReplaying) return;
 
         if (currentGameIndex >= gamePattern.length) {
             if (isMashPracticeMode) {
@@ -339,14 +397,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             botActionTimeout = setTimeout(() => {
-                handleCorrectInput();
+                handleCorrectInput(false);
                 processNextCommand();
             }, delay);
         }
     };
 
     const handlePlayerInput = (commandId) => {
-        if (gameFailed) return;
+        if (gameFailed || isReplaying) return;
 
         // Start timer on first press in mash mode
         if (isMashPracticeMode && currentGameIndex === 0) {
@@ -391,6 +449,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const expectedCommand = gamePattern[currentGameIndex];
 
         if (commandId !== expectedCommand) {
+            if (gameRecorder.isRecording()) {
+                gameRecorder.add('X', commandId, 'p'); // Record the incorrect input
+            }
             showMissAnimation();
             if (!isPracticeMode) {
                 lifeLostInPreviousRound = true;
@@ -404,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isPlayerTurn) {
             if (botActionTimeout) clearTimeout(botActionTimeout);
-            handleCorrectInput();
+            handleCorrectInput(true, commandId);
             processNextCommand();
         }
     };
@@ -484,13 +545,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (roundTimer) clearTimeout(roundTimer);
         if (botActionTimeout) clearTimeout(botActionTimeout);
         if (nextRoundTimeoutId) clearTimeout(nextRoundTimeoutId);
-    if (mashSuccessTimer) clearTimeout(mashSuccessTimer);
+        if (mashSuccessTimer) clearTimeout(mashSuccessTimer);
+        if (nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
+
         currentRound = 0;
         playerLives = 5; // Reset lives on returning to main screen
+        lifeLostInPreviousRound = false; // Reset flag for next game
         isMashPracticeMode = false;
+        isReplaying = false;
+
         mainContent.classList.remove('hidden');
         footerSettings.classList.remove('hidden');
         gameScreen.classList.add('hidden');
+        rankingScreen.classList.add('hidden');
+        if (rankingButtonContainer) rankingButtonContainer.classList.remove('hidden');
         gameScreen.innerHTML = '';
     };
 
@@ -653,20 +721,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return pattern;
     };
 
-    const showGameScreen = async (role) => {
-        let targetTteokKey; // Declare targetTteokKey here
+    const showGameScreen = async (role, isReplay = false, replayTteokKey = null) => {
+        let targetTteokKey = replayTteokKey;
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
-            if (missAnimationInterval) clearInterval(missAnimationInterval);
-            if (botActionTimeout) clearTimeout(botActionTimeout);
-            if (mashSuccessTimer) clearTimeout(mashSuccessTimer);        currentRole = role;
+        if (missAnimationInterval) clearInterval(missAnimationInterval);
+        if (botActionTimeout) clearTimeout(botActionTimeout);
+        if (mashSuccessTimer) clearTimeout(mashSuccessTimer);
+
+        currentRole = role;
         rebuildRoleKeybinds(role);
         mainContent.classList.add('hidden');
         footerSettings.classList.add('hidden');
+        rankingScreen.classList.add('hidden');
+        if (rankingButtonContainer) rankingButtonContainer.classList.add('hidden');
         gameScreen.classList.remove('hidden');
         
         let pattern; // This will be an array of row arrays
 
-        if (isMashPracticeMode) {
+        if (isReplay) {
+            // In replay mode, the pattern is already set in gamePattern
+            pattern = [];
+            for(let i = 0; i < gamePattern.length; i += 6) {
+                pattern.push(gamePattern.slice(i, i + 6));
+            }
+        } else if (isMashPracticeMode) {
             const count = (Math.floor(Math.random() * 7) + 2) * 2; // Even number from 4 to 16
             const mashPattern = Array(count).fill(8);
             pattern = [];
@@ -680,10 +758,6 @@ document.addEventListener('DOMContentLoaded', () => {
             targetTteokKey = 'Pig'; // Assign default for practice mode
         } else {
             currentRound++; // Increment round counter
-            const roundDisplay = document.createElement('div');
-            roundDisplay.id = 'round-display';
-            roundDisplay.textContent = `Round ${currentRound}`;
-
             try {
                 // Determine available tteok for the current round
                 let availableTteokForRound = [];
@@ -724,7 +798,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const [start, end] = config.rounds.split('-').map(s => parseInt(s, 10));
                     if (currentRound >= start && (isNaN(end) || currentRound <= end)) {
                         currentPatternExtensionLevel = config.pattern_extension_level;
-                        // rabbit_transform_probability_factor is no longer in default_difficulty_progression
                         break;
                     }
                 }
@@ -746,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    if (typeof tteokOverrides.rabbit_transform_probability_factor === 'number') {
+                    if (typeof tteokOverrides.rabbit_transform_probability_factor === 'number') { 
                         currentRabbitTransformProbabilityFactor = tteokOverrides.rabbit_transform_probability_factor;
                     } else if (Array.isArray(tteokOverrides.rabbit_transform_probability_factor)) {
                         for (const override of tteokOverrides.rabbit_transform_probability_factor) {
@@ -778,10 +851,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         gamePattern = pattern.flat();
+        
         currentGameIndex = 0;
         gameFailed = false;
 
-        // Common rendering logic for both practice and non-practice modes
+        if (!isPracticeMode && !isMashPracticeMode && !isReplay) {
+            if (currentRound === 1) {
+                gameRecorder.start();
+                gameRecorder.add('ROLE', role);
+            }
+            gameRecorder.add('R', currentRound);
+            gameRecorder.add('T', targetTteokKey);
+            gameRecorder.add('P', gamePattern.join(''));
+        }
+
         const getIconPath=(id)=>{const s1=[1,2,3,6],s2=[4,5,7,8];if(s1.includes(id))return`res/thanksgiving2024_room_command${id}.png`;if(s2.includes(id))return`res/thanksgiving_room_command${id}.png`;return'';};
         const commandBoxesHTML = pattern.map(row => `
             <div class="command-box">
@@ -796,8 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const targetTteok = (assetMap.tteok && assetMap.tteok[targetTteokKey]) ? assetMap.tteok[targetTteokKey] : null;
 
-
-        const recipeContainerHTML = !isPracticeMode && !isMashPracticeMode && targetTteok ? `
+        const recipeContainerHTML = (!isPracticeMode && !isMashPracticeMode && targetTteok) ? `
             <div class="recipe-container">
                 <img src="res/thanksgiving_room_tteok_recipe_bg.png" class="recipe-bg">
                 <img src="res/thanksgiving_room_tteok_recipe_box.9.png" class="recipe-box">
@@ -806,7 +888,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         ` : '';
 
-        // Now gameScreen.innerHTML can be set
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -826,43 +907,147 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="floor-container"></div>`;
         
-                        const ceilingElement = gameScreen.querySelector('.ceiling');
-                        if (ceilingElement) {
-                            if (isMashPracticeMode) {
-                                const roundDisplayElement = document.createElement('div');
-                                roundDisplayElement.id = 'round-display';
-                                roundDisplayElement.textContent = '연타 연습';
-                                ceilingElement.appendChild(roundDisplayElement);
-                            } else if (!isPracticeMode) {
-                                const roundDisplayElement = document.createElement('div');
-                                roundDisplayElement.id = 'round-display';
-                                roundDisplayElement.textContent = `Round ${currentRound}`;
-                                ceilingElement.appendChild(roundDisplayElement);
-            
-                                // Always create 5 heart icons, and update their display based on playerLives
-                                const heartContainer = document.createElement('div');
-                                heartContainer.id = 'heart-container';
-                                const maxLives = 5; // Assuming max lives is 5
-                                for (let i = 0; i < maxLives; i++) {
-                                    const heart = document.createElement('img');
-                                    heart.className = 'heart-icon';
-                                    heartContainer.appendChild(heart);
-                                }
-                                ceilingElement.appendChild(heartContainer);
-                                updateHeartDisplay(); // Update display after creating all hearts
-                            }
+                const ceilingElement = gameScreen.querySelector('.ceiling');
+        
+                if (ceilingElement) {
+        
+                    if (isReplay) {
+        
+                        const roundDisplayElement = document.createElement('div');
+        
+                        roundDisplayElement.id = 'round-display';
+        
+                        roundDisplayElement.textContent = `Round ${currentRound}`;
+        
+                        ceilingElement.appendChild(roundDisplayElement);
+        
+        
+        
+                        // Add hearts for replay
+        
+                        const heartContainer = document.createElement('div');
+        
+                        heartContainer.id = 'heart-container';
+        
+                        const maxLives = 5;
+        
+                        for (let i = 0; i < maxLives; i++) {
+        
+                            const heart = document.createElement('img');
+        
+                            heart.className = 'heart-icon';
+        
+                            heartContainer.appendChild(heart);
+        
                         }
-        renderFloorButtons(role);
-        positionGlowReliably();
+        
+                        ceilingElement.appendChild(heartContainer);
+        
+                        updateHeartDisplay(); // Update display based on replay lives
+        
+        
+        
+                    } else if (isMashPracticeMode) {
+        
+                        const roundDisplayElement = document.createElement('div');
+        
+                        roundDisplayElement.id = 'round-display';
+        
+                        roundDisplayElement.textContent = '연타 연습';
+        
+                        ceilingElement.appendChild(roundDisplayElement);
+        
+                    } else if (!isPracticeMode) {
+        
+                        const roundDisplayElement = document.createElement('div');
+        
+                        roundDisplayElement.id = 'round-display';
+        
+                        roundDisplayElement.textContent = `Round ${currentRound}`;
+        
+                        ceilingElement.appendChild(roundDisplayElement);
+        
+        
+        
+                        const heartContainer = document.createElement('div');
+        
+                        heartContainer.id = 'heart-container';
+        
+                        const maxLives = 5;
+        
+                        for (let i = 0; i < maxLives; i++) {
+        
+                            const heart = document.createElement('img');
+        
+                            heart.className = 'heart-icon';
+        
+                            heartContainer.appendChild(heart);
+        
+                        }
+        
+                        ceilingElement.appendChild(heartContainer);
+        
+                        updateHeartDisplay();
+        
+                    }
+        
+                }
+        
+        
+        
+                        renderFloorButtons(role);
+        
+        
+        
+                        if (isReplay) {
+        
+        
+        
+                            const floorContainer = gameScreen.querySelector('.floor-container');
+        
+        
+        
+                            if (floorContainer) {
+        
+        
+        
+                                // In replay mode, hide buttons but keep the container tray
+        
+        
+        
+                                floorContainer.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => {
+        
+        
+        
+                                    el.style.visibility = 'hidden';
+        
+        
+        
+                                });
+        
+        
+        
+                            }
+        
+        
+        
+                        }
+        
+        
+        
+                        positionGlowReliably();
 
-        if (!isMashPracticeMode) {
-            if (roundTimer) clearTimeout(roundTimer);
-            const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) : 4;
-            roundStartTime = performance.now();
-            roundTimer = setTimeout(() => {
-                if (gameFailed) return;
-                onRoundEnd(false); // Timeout is always a failure now
-            }, timeLimit * 1000);
+        if (!isMashPracticeMode) { // Run timer UI for normal games and replays
+            const timeLimit = (isPracticeMode && !isReplay) ? parseInt(timeInput.value, 10) : 4;
+            
+            if (!isReplay) { // But only set the functional timeout for actual games
+                if (roundTimer) clearTimeout(roundTimer);
+                roundStartTime = performance.now();
+                roundTimer = setTimeout(() => {
+                    if (gameFailed) return;
+                    onRoundEnd(false);
+                }, timeLimit * 1000);
+            }
 
             const gauge = gameScreen.querySelector('.timer-gauge');
             if (gauge) {
@@ -874,7 +1059,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        processNextCommand();
+        if (!isReplay) {
+            processNextCommand();
+        }
     };
 
     const validateAndStartGame = (role) => {
@@ -894,6 +1081,173 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(`다음 라운드는 ${roundNum} 라운드부터 시작됩니다.`);
         } else {
             console.error("유효하지 않은 라운드 번호입니다. 1 이상의 숫자를 입력해주세요.");
+        }
+    };
+
+    // =================================================================
+    // SECTION 4: RANKING & REPLAY LOGIC
+    // =================================================================
+
+    const showRankingScreen = async (role = '돼지') => {
+        mainContent.classList.add('hidden');
+        footerSettings.classList.add('hidden');
+        if (rankingButtonContainer) rankingButtonContainer.classList.add('hidden');
+        rankingScreen.classList.remove('hidden');
+        
+        // Update active button style
+        document.querySelectorAll('.role-selector-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.role === role);
+        });
+
+        const listElement = document.getElementById('ranking-list');
+        listElement.innerHTML = '<div class="loading-text">랭킹 불러오는 중...</div>';
+
+        try {
+            const response = await fetch(`https://ranking-three-kappa.vercel.app/api/get-ranking?role=${role}`);
+            if (!response.ok) {
+                throw new Error(`서버 오류: ${response.status}`);
+            }
+            const rankings = await response.json();
+
+            if (rankings.length === 0) {
+                listElement.innerHTML = '<div class="loading-text">아직 랭킹이 없습니다.</div>';
+                return;
+            }
+
+            listElement.innerHTML = rankings.map((r, index) => `
+                <div class="ranking-item">
+                    <span class="rank">${index + 1}위</span>
+                    <span class="nickname">${r.nickname}</span>
+                    <span class="round">${r.max_round} 라운드</span>
+                    <button class="replay-button" data-replay='${r.data}'>리플레이</button>
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.replay-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const gameData = e.currentTarget.dataset.replay;
+                    startReplay(gameData);
+                });
+            });
+
+        } catch (error) {
+            listElement.innerHTML = `<div class="loading-text">랭킹을 불러오지 못했습니다: ${error.message}</div>`;
+            console.error('Failed to fetch rankings:', error);
+        }
+    };
+
+    const startReplay = (gameData) => {
+        isReplaying = true;
+        playerLives = 5; // Reset lives for replay
+        lifeLostInReplayRound = false; // Reset replay life loss flag
+        rankingScreen.classList.add('hidden');
+
+        const lines = gameData.split('\n');
+        replayEvents = lines.map(line => {
+            const parts = line.split(',');
+            const type = parts[0];
+            const value = parts[1];
+            if (type === 'I' || type === 'X') {
+                return { type, command: parseInt(value, 10), source: parts[2], time: parseInt(parts[3], 10) };
+            }
+            return { type, value };
+        }).filter(e => e.type); // Filter out empty lines
+
+        // Find and set the role for the entire replay
+        const roleEvent = replayEvents.find(e => e.type === 'ROLE');
+        currentRole = roleEvent ? roleEvent.value : '돼지'; // Default to 돼지 if not found
+
+        replayLoop();
+    };
+
+    const replayLoop = () => {
+        if (!isReplaying || replayEvents.length === 0) {
+            showToast('리플레이 종료');
+            gameScreen.classList.add('hidden');
+            gameScreen.innerHTML = '';
+            showRankingScreen(); // Go back to ranking screen when replay ends
+            return;
+        }
+
+        const event = replayEvents.shift();
+        let timeToNextEvent = 0;
+        if (replayEvents.length > 0 && replayEvents[0].time && event.time) {
+            timeToNextEvent = replayEvents[0].time - event.time;
+        }
+
+        switch (event.type) {
+            case 'ROLE': // Role is handled in startReplay, just skip here
+                replayLoop();
+                break;
+
+            case 'R':
+                replayRoundStartTime = Date.now(); // Record when the round visually starts
+                currentRound = parseInt(event.value, 10);
+
+                // Handle life loss from the *previous* round
+                if (lifeLostInReplayRound) {
+                    playerLives--;
+                    updateHeartDisplay();
+                    lifeLostInReplayRound = false; // Reset for the new round
+                }
+
+                if (playerLives <= 0) {
+                    showToast('리플레이 종료 - 게임 오버');
+                    isReplaying = false;
+                    showRankingScreen();
+                    return;
+                }
+
+                const patternEvent = replayEvents.find(e => e.type === 'P');
+                const tteokEvent = replayEvents.find(e => e.type === 'T');
+                const tteokKey = tteokEvent ? tteokEvent.value : null;
+
+                if (patternEvent) {
+                    gamePattern = patternEvent.value.split('').map(Number);
+                    showGameScreen(currentRole, true, tteokKey);
+                }
+                nextReplayEventTimeout = setTimeout(replayLoop, 500); // Wait a bit before starting inputs
+                break;
+
+            case 'P': // Pattern is handled by 'R', so we just skip it here
+            case 'T': // Tteok is also handled by 'R'
+                replayLoop();
+                break;
+
+            case 'I':
+                handleCorrectInput();
+                updateGlowIndicator();
+                nextReplayEventTimeout = setTimeout(replayLoop, timeToNextEvent);
+                break;
+
+            case 'X':
+            case 'O':
+                if (event.type === 'X') {
+                    showMissAnimation();
+                    lifeLostInReplayRound = true; // Set flag for next round
+                }
+                const outcome = event.value || 'fail';
+                showToast(outcome === 'success' ? '성공' : '실패');
+
+                const timeElapsed = Date.now() - replayRoundStartTime;
+                const delayForNextRound = Math.max(0, 4000 - timeElapsed);
+
+                nextReplayEventTimeout = setTimeout(() => {
+                    // Fast-forward to the next 'R' or end of events
+                    while(replayEvents.length > 0 && !['R', 'T', 'P'].includes(replayEvents[0].type)) {
+                        replayEvents.shift();
+                    }
+                    // Now remove the T and P events as they are handled by R
+                    while(replayEvents.length > 0 && (replayEvents[0].type === 'T' || replayEvents[0].type === 'P')) {
+                        replayEvents.shift();
+                    }
+                    replayLoop();
+                }, delayForNextRound);
+                break;
+
+            default:
+                replayLoop(); // Move to next event if unknown
+                break;
         }
     };
 
@@ -920,12 +1274,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleActivation(event) {
         const target = event.currentTarget;
         if (target.classList.contains('exit-button')) {
-            showMainScreen();
+            if (isReplaying) {
+                isReplaying = false;
+                if(nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
+                gameScreen.classList.add('hidden');
+                gameScreen.innerHTML = '';
+                showRankingScreen();
+            } else {
+                showMainScreen();
+            }
         } else if (target.hasAttribute('data-command')) {
             const commandId = parseInt(target.dataset.command.replace('command', ''), 10);
             handlePlayerInput(commandId);
         } else if (target.classList.contains('choice-button')) {
-            validateAndStartGame(target.textContent);
+            if (target.id === 'ranking-button') {
+                showRankingScreen();
+            } else {
+                validateAndStartGame(target.textContent);
+            }
         }
     }
 
@@ -947,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('keydown', (event) => {
-        if (event.repeat) return;
+        if (event.repeat || isReplaying) return;
 
         if (isBindingKey) {
             event.preventDefault();
@@ -985,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('keyup', (event) => {
+        if (isReplaying) return;
         if (!isBindingKey && !gameScreen.classList.contains('hidden')) {
             const command = keybinds[event.key.toLowerCase()];
             if (command) {
@@ -1004,7 +1371,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     choiceButtons.forEach(button => {
-        if (button.textContent === '토끼') {
+        // This loop now correctly handles the ranking button as well
+        if (button.id === 'ranking-button') {
+            setupButtonListeners(button);
+        } else if (button.textContent === '토끼') {
             const startPress = (e) => {
                 handlePress({ currentTarget: button });
                 longPressTimer = setTimeout(() => {
@@ -1043,11 +1413,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    backToMainButton.addEventListener('click', showMainScreen);
+
+    document.querySelectorAll('.role-selector-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const role = e.currentTarget.dataset.role;
+            showRankingScreen(role);
+        });
+    });
+
     practiceToggle.addEventListener('click', () => {
         isPracticeMode = !isPracticeMode;
         localStorage.setItem('isPracticeMode', isPracticeMode);
         practiceToggle.textContent = `연습모드: ${isPracticeMode ? '켬' : '끔'}`;
-        practiceSettings.classList.toggle('hidden');
+        if (isPracticeMode) {
+            practiceSettings.classList.remove('hidden');
+            nicknameSettings.classList.add('hidden');
+        } else {
+            practiceSettings.classList.add('hidden');
+            nicknameSettings.classList.remove('hidden');
+        }
     });
 
     function toggleFullScreen() {
@@ -1058,6 +1443,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     fullscreenToggle.addEventListener('click', toggleFullScreen);
+
+    nicknameInput.addEventListener('input', () => {
+        localStorage.setItem('nickname', nicknameInput.value);
+    });
 
     const setupInputValidation = (input, lastValidValueRef, storageKey) => {
         input.addEventListener('focus', () => { lastValidValueRef.value = input.value; });
@@ -1168,8 +1557,10 @@ document.addEventListener('DOMContentLoaded', () => {
         practiceToggle.textContent = `연습모드: ${isPracticeMode ? '켬' : '끔'}`;
         if (isPracticeMode) {
             practiceSettings.classList.remove('hidden');
+            nicknameSettings.classList.add('hidden');
         } else {
             practiceSettings.classList.add('hidden');
+            nicknameSettings.classList.remove('hidden');
         }
 
         const savedLines = localStorage.getItem('practiceLines') || '5';
@@ -1178,6 +1569,9 @@ document.addEventListener('DOMContentLoaded', () => {
         timeInput.value = savedTime;
         lastValidLines = savedLines;
         lastValidTime = savedTime;
+
+        const savedNickname = localStorage.getItem('nickname') || '';
+        nicknameInput.value = savedNickname;
     };
 
     initializeApp();

@@ -31,13 +31,16 @@ img {
     display: flex;
     flex-direction: column;
     overflow-y: hidden;
+    position: relative; /* Add for positioning context */
 }
 
 .main-content {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     flex-grow: 1;
+    gap: 2rem;
     padding: 1.25rem;
     box-sizing: border-box;
 }
@@ -55,7 +58,6 @@ img {
     background-color: white;
     color: black;
     width: auto;
-    padding: 0.9375rem 1.875rem;
     padding: 0.9375rem 1.875rem;
     font-size: 1.5em;
     font-weight: bold;
@@ -75,6 +77,23 @@ img {
     width: 100%;
 }
 
+.ranking-button-container {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 10; /* Ensure it's above main content */
+}
+
+.ranking-button-container.hidden {
+    display: none;
+}
+
+.ranking-button-container #ranking-button {
+    padding: 0.5rem 1rem;
+    font-size: 1em;
+    background-color: #ffc107;
+}
+
 #practice-toggle, #fullscreen-toggle {
     color: white;
     font-size: 1em;
@@ -84,6 +103,14 @@ img {
 }
 
 #practice-settings {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+}
+
+#nickname-settings {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -124,9 +151,11 @@ img {
 }
 
 #practice-settings.hidden,
+#nickname-settings.hidden,
 .main-content.hidden,
 .footer-settings.hidden,
-#game-screen.hidden {
+#game-screen.hidden,
+#ranking-screen.hidden {
     display: none;
 }
 
@@ -164,11 +193,10 @@ img {
 
 #heart-container {
     position: absolute;
-    top: 20%; /* Adjust as needed to be below round-display */
+    top: 70%; /* Adjust as needed to be below round-display */
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 0.1rem; /* Reduced space between hearts */
     z-index: 20;
 }
 
@@ -551,4 +579,112 @@ img {
     z-index: 3;
     width: 100%;
     text-align: center;
+}
+
+/* --- Ranking Screen Styles --- */
+#ranking-screen {
+    width: 100%;
+    height: 100%;
+    background-color: #1a1a1a;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.ranking-title {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: #ffc107;
+}
+
+.ranking-role-selector {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.role-selector-btn {
+    background-color: #444;
+    color: white;
+    border: 2px solid #555;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+.role-selector-btn.active {
+    background-color: #ffc107;
+    color: #1a1a1a;
+    border-color: #ffc107;
+}
+
+#ranking-list {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.ranking-item {
+    background-color: #2c2c2c;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.2em;
+}
+
+.ranking-item .rank {
+    font-weight: bold;
+    color: #ffc107;
+    min-width: 30px;
+}
+
+.ranking-item .nickname {
+    flex-grow: 1;
+    margin-left: 15px;
+}
+
+.ranking-item .round {
+    min-width: 100px;
+    text-align: right;
+}
+
+.replay-button {
+    background-color: #ffc107;
+    color: #1a1a1a;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 20px;
+}
+
+.replay-button:hover {
+    background-color: #ffca2c;
+}
+
+#back-to-main-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#back-to-main-button:hover {
+    background-color: #d32f2f;
 }
