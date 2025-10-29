@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        setTimeout(updateGlowIndicator, 50); // Add a small delay
+        updateGlowIndicator();
     };
 
     const updateHeartDisplay = () => {
@@ -995,7 +995,20 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         
-                        renderFloorButtons(role);
+                        const commandIcons = gameScreen.querySelectorAll('.command-icon');
+        const imageLoadPromises = [];
+        commandIcons.forEach(icon => {
+            if (!icon.complete) {
+                imageLoadPromises.push(new Promise(resolve => {
+                    icon.onload = resolve;
+                    icon.onerror = resolve; // Resolve on error too so one broken image doesn't stop the game
+                }));
+            }
+        });
+
+        await Promise.all(imageLoadPromises);
+
+        renderFloorButtons(role);
         
         
         
@@ -1224,9 +1237,11 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'O':
                 if (event.type === 'X') {
                     showMissAnimation();
-                    lifeLostInReplayRound = true; // Set flag for next round
                 }
                 const outcome = event.value || 'fail';
+                if (outcome === 'fail') {
+                    lifeLostInReplayRound = true;
+                }
                 showToast(outcome === 'success' ? '성공' : '실패');
 
                 const timeElapsed = Date.now() - replayRoundStartTime;
