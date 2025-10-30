@@ -94,6 +94,25 @@ img {
     background-color: #ffc107;
 }
 
+#online-button-container {
+    position: absolute;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 10;
+}
+
+
+#online-button-container.hidden {
+    display: none;
+}
+
+#online-button-container #online-button {
+    padding: 0.5rem 1rem;
+    font-size: 1em;
+    background-color: #4CAF50;
+    color: white;
+}
+
 #practice-toggle, #fullscreen-toggle {
     color: white;
     font-size: 1em;
@@ -155,7 +174,9 @@ img {
 .main-content.hidden,
 .footer-settings.hidden,
 #game-screen.hidden,
-#ranking-screen.hidden {
+#ranking-screen.hidden,
+#lobby-screen.hidden,
+#room-screen.hidden {
     display: none;
 }
 
@@ -686,5 +707,272 @@ img {
 }
 
 #back-to-main-button:hover {
+    background-color: #d32f2f;
+}
+
+/* --- Lobby Screen Styles --- */
+#lobby-screen {
+    width: 100%;
+    height: 100%;
+    background-color: #1a1a1a;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.lobby-title {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: #4CAF50;
+}
+
+#create-room-button {
+    background-color: #2196F3;
+    color: white;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+#create-room-button:hover {
+    background-color: #1976D2;
+}
+
+#room-list {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 10px;
+    background-color: #2c2c2c;
+    border-radius: 8px;
+}
+
+.room-item {
+    background-color: #444;
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.2em;
+    cursor: pointer;
+}
+
+.room-item:hover {
+    background-color: #555;
+}
+
+.room-name {
+    font-weight: bold;
+}
+
+.room-players {
+    color: #ccc;
+}
+
+#back-to-main-from-lobby-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#back-to-main-from-lobby-button:hover {
+    background-color: #d32f2f;
+}
+
+/* --- Room Screen Styles --- */
+#room-screen {
+    width: 100%;
+    height: 100%;
+    background-color: #1a1a1a;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.room-title {
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: #ffc107;
+}
+
+#current-room-id {
+    font-weight: bold;
+}
+
+.role-selection {
+    border: 1px solid #444;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #222;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.role-btn {
+    background-color: #444;
+    color: white;
+    border: 2px solid #555;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+.role-btn.active {
+    background-color: #ffc107;
+    color: #1a1a1a;
+    border-color: #ffc107;
+}
+
+.role-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #666;
+    border-color: #777;
+}
+
+.player-role-displays {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.player-display-box {
+    background-color: #2c2c2c;
+    padding: 15px;
+    border-radius: 8px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-height: 100px; /* Ensure consistent height */
+}
+
+.role-label {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: #ffc107;
+    margin-bottom: 5px;
+}
+
+.player-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 1.1em;
+}
+
+.player-nickname-display {
+    font-weight: bold;
+    color: white;
+}
+
+.player-ready-status-display {
+    font-style: italic;
+    color: #bbb;
+    font-size: 0.9em;
+}
+
+#spectator-list-container {
+    display: flex;
+    flex-direction: column;
+    width:90%;
+    justify-content: space-between; /* Pushes the button to the bottom */
+    height: 100%; /* Ensure it takes full height to push button down */
+    border: 1px solid #444;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #222;
+    margin-top: 20px;
+}
+
+#spectator-list-container .role-btn {
+    margin-top: auto; /* Pushes the button to the bottom if container is flex column */
+}
+
+.spectator-label {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #bbb;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+#spectator-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    max-height: 150px; /* Limit height for scroll if many spectators */
+    overflow-y: auto;
+}
+
+.spectator-item {
+    background-color: #444;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    color: #ddd;
+}
+
+#toggle-ready-button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+#toggle-ready-button.not-ready {
+    background-color: #f44336;
+}
+
+#toggle-ready-button:hover {
+    filter: brightness(90%);
+}
+
+#back-to-lobby-button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#back-to-lobby-button:hover {
     background-color: #d32f2f;
 }

@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pigPlayerDisplay = document.getElementById('pig-player-display');
     const rabbitPlayerDisplay = document.getElementById('rabbit-player-display');
     const spectatorList = document.getElementById('spectator-list');
+    const toggleReadyButton = document.getElementById('toggle-ready-button');
     const backToLobbyButton = document.getElementById('back-to-lobby-button');
 
     let isPracticeMode = true;
@@ -84,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let playerLives = 5;
     let lifeLostInPreviousRound = false;
     let lifeLostInReplayRound = false;
-    let serverAddress = ''; // Default server address
 
     // =================================================================
     // SECTION 1: CORE HELPER FUNCTIONS
@@ -176,8 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // SECTION 3: GAME LOGIC & UI RENDERING
     // =================================================================
 
-    const showMissAnimation = (roleThatFailed) => {
-        const missFrames = (roleThatFailed === '돼지') ? pigMissFrames : rabbitMissFrames;
+    const showMissAnimation = () => {
+        const missFrames = (currentRole === '돼지') ? pigMissFrames : rabbitMissFrames;
         const overlays = document.querySelectorAll('.miss-overlay');
         let frame = 0;
 
@@ -276,8 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nickname = nicknameInput.value.trim();
             if (!nickname) {
                 gameRecorder.stop();
-                alert(`게임 결과: ${currentRound} 라운드
-(닉네임이 없어 기록이 저장되지 않았습니다.)`);
+                alert(`게임 결과: ${currentRound} 라운드\n(닉네임이 없어 기록이 저장되지 않았습니다.)`);
                 showMainScreen();
                 return; // Exit without saving
             }
@@ -338,14 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (botActionTimeout) clearTimeout(botActionTimeout);
         gameFailed = true;
 
-        // --- START: Online Mode Logic Bypass ---
-        if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // In online mode, the server handles round transitions and life deduction.
-            // Client just updates UI based on server's 'roundEnd' message.
-            return;
-        }
-        // --- END: Online Mode Logic Bypass ---
-
         // Calculate the target time for the next round to start
         const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) * 1000 : 4000; // Get the actual time limit for the round
         const targetNextRoundStartTime = roundStartTime + timeLimit;
@@ -403,14 +394,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const processNextCommand = () => {
         if (gameFailed || isReplaying) return;
 
-        // --- START: Online Mode Logic ---
-        if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // In online mode, the server dictates turns and bot actions.
-            // Client-side bot logic should be bypassed.
-            return;
-        }
-        // --- END: Online Mode Logic ---
-
         if (currentGameIndex >= gamePattern.length) {
             if (isMashPracticeMode) {
                 // Pattern complete, start 200ms timer to check for extra inputs.
@@ -445,14 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handlePlayerInput = (commandId) => {
         if (gameFailed || isReplaying) return;
-
-        // --- START: Online Mode Logic ---
-        if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // In online mode, send input to server and let server handle validation and state updates
-            ws.send(JSON.stringify({ type: 'playerInput', roomId: currentRoomId, commandId: commandId }));
-            return; // Exit, server will send updates
-        }
-        // --- END: Online Mode Logic ---
 
         // Start timer on first press in mash mode
         if (isMashPracticeMode && currentGameIndex === 0) {
@@ -500,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gameRecorder.isRecording()) {
                 gameRecorder.add('X', commandId, 'p'); // Record the incorrect input
             }
-            showMissAnimation(currentRole);
+            showMissAnimation();
             if (!isPracticeMode) {
                 lifeLostInPreviousRound = true;
             }
@@ -596,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showToast('서버 연결 중...');
-        ws = new WebSocket(serverAddress); // Use address from config
+        ws = new WebSocket('ws://localhost:8882'); // Use the server port
 
         ws.onopen = () => {
             console.log('Connected to WebSocket server');
@@ -631,11 +606,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         updateRoomScreen(data.gameState);
                     }
                     break;
-                case 'gameCountdown':
-                    showToast(`${data.count}초 후 게임 시작!`);
-                    break;
-                case 'gameStartCancelled':
-                    showToast('시작이 취소되었습니다.');
+                case 'gameStarting':
+                    let countdown = data.countdown;
+                    gameStartCountdownInterval = setInterval(() => {
+                        if (countdown > 0) {
+                            showToast(`${countdown}초 후 게임 시작!`);
+                            countdown--;
+                        } else {
+                            clearInterval(gameStartCountdownInterval);
+                        }
+                    }, 1000);
                     break;
                 case 'roundStart':
                     clearInterval(gameStartCountdownInterval); // Ensure countdown interval is cleared
@@ -643,47 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     gameScreen.classList.remove('hidden');
                     currentRound = data.round;
                     playerLives = data.gameState.sharedLives; // Update shared lives
-                    gameFailed = false; // Reset gameFailed flag for new round
                     showGameScreen(myRole, false, null, data.pattern, data.tteokKey);
-                    break;
-                case 'inputCorrect':
-                    // Server confirmed a correct input
-                    handleCorrectInput(true, data.commandId); // Treat as player input for UI update
-                    updateGlowIndicator(); // Update glow for next expected command
-                    break;
-                case 'turnChange':
-                    // Server indicates whose turn it is next (or if bot should act)
-                    // This is primarily for server-side logic, client just updates glow based on inputCorrect
-                    break;
-                case 'roundEnd':
-                    // Server indicates round outcome
-                    if (roundTimer) clearTimeout(roundTimer); // Clear client-side timer
-                    if (botActionTimeout) clearTimeout(botActionTimeout); // Clear bot timeout
-
-                    playerLives = data.gameState.sharedLives; // Update shared lives from server
-                    updateHeartDisplay(); // Update heart display
-
-                    if (data.isSuccess) {
-                        if (glowAnimationInterval) clearInterval(glowAnimationInterval); // Clear glow
-                        const glowElement = gameScreen.querySelector('.glow-indicator');
-                        if (glowElement) glowElement.classList.add('hidden');
-
-                        showToast('성공');
-                        const scrollContent = gameScreen.querySelector('.scroll-content');
-                        if (scrollContent) scrollContent.style.display = 'none';
-                    } else {
-                        showToast('실패');
-                        if (data.failedRole) { // Only show animation if a player made a direct mistake
-                            showMissAnimation(data.failedRole);
-                        }
-                    }
-                    // Server will send a new 'roundStart' message after a delay
-                    break;
-                case 'gameOver':
-                    clearInterval(gameStartCountdownInterval);
-                    alert(data.message);
-                    // Instead of showMainScreen(), show the room screen with the updated state
-                    showRoomScreen(data.gameState);
                     break;
                 case 'roleChangeFailed':
                     showToast(data.message);
@@ -772,7 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         myRole = gameState.roles[myClientId] || '관전';
         console.log('myClientId:', myClientId, 'myRole:', myRole);
 
-        const amIReady = gameState.playerInfo[myClientId] && gameState.playerInfo[myClientId].isReady;
+        // Update role buttons active state and disable if taken
         const takenRoles = Object.values(gameState.roles); // Array of roles currently taken
         const pigTaken = takenRoles.includes('돼지');
         const rabbitTaken = takenRoles.includes('토끼');
@@ -780,30 +720,16 @@ document.addEventListener('DOMContentLoaded', () => {
         roleButtons.forEach(btn => {
             const role = btn.dataset.role;
             btn.classList.toggle('active', role === myRole);
-            btn.classList.remove('not-ready'); // Reset ready-specific styling
 
-            // Set button text and state
             if (role === '돼지') {
+                // Disable if pig is taken by someone else, or if I am pig
                 btn.disabled = (pigTaken && myRole !== '돼지');
-                if (myRole === '돼지') {
-                    btn.textContent = amIReady ? '준비 취소' : '준비';
-                    btn.classList.toggle('not-ready', !amIReady);
-                } else {
-                    btn.textContent = '돼지 선택';
-                }
             } else if (role === '토끼') {
+                // Disable if rabbit is taken by someone else, or if I am rabbit
                 btn.disabled = (rabbitTaken && myRole !== '토끼');
-                 if (myRole === '토끼') {
-                    btn.textContent = amIReady ? '준비 취소' : '준비';
-                    btn.classList.toggle('not-ready', !amIReady);
-                } else {
-                    btn.textContent = '토끼 선택';
-                }
             } else if (role === '관전') {
                 btn.disabled = false; // Spectator is always available
-                btn.textContent = '관전하기';
             }
-            
             btn.classList.toggle('disabled', btn.disabled);
         });
 
@@ -870,6 +796,16 @@ document.addEventListener('DOMContentLoaded', () => {
             spectatorList.appendChild(li);
             console.log('Spectator added:', spectator.nickname);
         });
+
+        // Update ready button visibility and text
+        if (myRole === '돼지' || myRole === '토끼') {
+            toggleReadyButton.classList.remove('hidden');
+            const amIReady = gameState.playerInfo[myClientId] && gameState.playerInfo[myClientId].isReady;
+            toggleReadyButton.textContent = amIReady ? '준비 취소' : '준비';
+            toggleReadyButton.classList.toggle('not-ready', !amIReady);
+        } else {
+            toggleReadyButton.classList.add('hidden');
+        }
     };
 
     const showMainScreen = () => {
@@ -904,13 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lobbyScreen.classList.add('hidden'); // Hide lobby screen
         roomScreen.classList.add('hidden'); // Hide room screen
         if (rankingButtonContainer) rankingButtonContainer.classList.remove('hidden');
-        if (onlineButtonContainer) {
-            if (isPracticeMode) {
-                onlineButtonContainer.classList.add('hidden');
-            } else {
-                onlineButtonContainer.classList.remove('hidden');
-            }
-        } // Show online button
+        if (onlineButtonContainer) onlineButtonContainer.classList.remove('hidden'); // Show online button
         gameScreen.innerHTML = '';
     };
 
@@ -1116,8 +1046,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 pattern.push(gamePattern.slice(i, i + 6));
             }
             // targetTteokKey is already set from serverTteokKey
-        } else { // Real single-player mode
-            currentRound++; // Increment round counter for single-player mode
+        } else { // Original online game logic (now replaced by serverPattern)
+            currentRound++; // Increment round counter
             try {
                 // Determine available tteok for the current round
                 let availableTteokForRound = [];
@@ -1144,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`${randomTteokKey}에 대한 패턴 파일이 patternManifest에 정의되어 있지 않습니다.`);
                 }
                 const randomPatternFile = patternFiles[Math.floor(Math.random() * patternFiles.length)];
-                const patternFilePath = `patterns/${randomTteokKey}/${randomPatternFile}`; // Client-side path
+                const patternFilePath = `patterns/${randomTteokKey}/${randomPatternFile}`;
 
                 const response = await fetch(patternFilePath);
                 if (!response.ok) throw new Error(`패턴 파일을 불러올 수 없습니다: ${patternFilePath} - ` + response.statusText);
@@ -1375,39 +1305,40 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         
-                                                if (isReplay || role === '관전') {
-                        
-                        
-                        
-                                                    const floorContainer = gameScreen.querySelector('.floor-container');
-                        
-                        
-                        
-                                                    if (floorContainer) {
-                        
-                        
-                        
-                                                        // In replay or spectator mode, hide buttons but keep the container tray
-                        
-                        
-                        
-                                                        floorContainer.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => {
-                        
-                        
-                        
-                                                            el.style.visibility = 'hidden';
-                        
-                        
-                        
-                                                        });
-                        
-                        
-                        
-                                                    }
-                        
-                        
-                        
-                                                }        
+                        if (isReplay) {
+        
+        
+        
+                            const floorContainer = gameScreen.querySelector('.floor-container');
+        
+        
+        
+                            if (floorContainer) {
+        
+        
+        
+                                // In replay mode, hide buttons but keep the container tray
+        
+        
+        
+                                floorContainer.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => {
+        
+        
+        
+                                    el.style.visibility = 'hidden';
+        
+        
+        
+                                });
+        
+        
+        
+                            }
+        
+        
+        
+                        }
+        
         
         
                         positionGlowReliably();
@@ -1435,11 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!isReplay) {
-            // In online mode, the server will send 'roundStart' which will trigger the game flow.
-            // We should not call processNextCommand here for online games.
-            if (!(ws && ws.readyState === WebSocket.OPEN && currentRoomId)) {
-                processNextCommand();
-            }
+            processNextCommand();
         }
     };
 
@@ -1603,7 +1530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'X':
             case 'O':
                 if (event.type === 'X') {
-                    showMissAnimation(currentRole);
+                    showMissAnimation();
                 }
                 const outcome = event.value || 'fail';
                 if (outcome === 'fail') {
@@ -1819,21 +1746,23 @@ document.addEventListener('DOMContentLoaded', () => {
     roleButtons.forEach(button => {
         button.addEventListener('click', (e) => {
             const role = e.currentTarget.dataset.role;
-            if (!ws || ws.readyState !== WebSocket.OPEN || !currentRoomId) {
-                showToast('서버에 연결되어 있지 않거나 방에 입장해 있지 않습니다.');
-                return;
-            }
-
-            // If the player clicks the button for the role they already have, treat it as a ready toggle.
-            if (myRole === role && (myRole === '돼지' || myRole === '토끼')) {
-                 ws.send(JSON.stringify({ type: 'toggleReady', roomId: currentRoomId }));
+            if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
+                ws.send(JSON.stringify({ type: 'selectRole', roomId: currentRoomId, role: role, nickname: nicknameInput.value }));
             } else {
-                // Otherwise, treat it as a role selection attempt.
-                 ws.send(JSON.stringify({ type: 'selectRole', roomId: currentRoomId, role: role, nickname: nicknameInput.value }));
+                showToast('서버에 연결되어 있지 않거나 방에 입장해 있지 않습니다.');
             }
         });
     });
 
+    toggleReadyButton.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN && currentRoomId && (myRole === '돼지' || myRole === '토끼')) {
+            ws.send(JSON.stringify({ type: 'toggleReady', roomId: currentRoomId }));
+        } else if (myRole === '관전') {
+            showToast('역할을 선택해야 준비할 수 있습니다.');
+        } else {
+            showToast('서버에 연결되어 있지 않거나 방에 입장해 있지 않습니다.');
+        }
+    });
 
     backToLobbyButton.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
@@ -1861,11 +1790,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isPracticeMode) {
             practiceSettings.classList.remove('hidden');
             nicknameSettings.classList.add('hidden');
-            onlineButtonContainer.classList.add('hidden');
         } else {
             practiceSettings.classList.add('hidden');
             nicknameSettings.classList.remove('hidden');
-            onlineButtonContainer.classList.remove('hidden');
         }
     });
 
@@ -1898,19 +1825,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
 
     const initializeApp = async () => {
-        try {
-            const response = await fetch('config.json');
-            if (response.ok) {
-                const config = await response.json();
-                serverAddress = config.serverAddress;
-                console.log(`Server address set to: ${serverAddress}`);
-            } else {
-                console.warn('config.json not found, using default server address.');
-            }
-        } catch (error) {
-            console.warn('Error loading config.json, using default server address.', error);
-        }
-
         loadKeybinds();
         try {
             const botConfigResponse = await fetch('bot_config.json');
@@ -2005,11 +1919,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isPracticeMode) {
             practiceSettings.classList.remove('hidden');
             nicknameSettings.classList.add('hidden');
-            onlineButtonContainer.classList.add('hidden');
         } else {
             practiceSettings.classList.add('hidden');
             nicknameSettings.classList.remove('hidden');
-            onlineButtonContainer.classList.remove('hidden');
         }
 
         const savedLines = localStorage.getItem('practiceLines') || '5';

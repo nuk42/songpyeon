@@ -24,6 +24,39 @@
             </div>
         </main>
         <div id="game-screen" class="hidden"></div>
+        <div id="lobby-screen" class="hidden">
+            <h1 class="lobby-title">온라인 로비</h1>
+            <button id="create-room-button">방 만들기</button>
+            <div id="room-list"></div>
+            <button id="back-to-main-from-lobby-button">돌아가기</button>
+        </div>
+        <div id="room-screen" class="hidden">
+            <h1 class="room-title">방 ID: <span id="current-room-id"></span></h1>
+            <div class="player-role-displays">
+                <div id="pig-player-display" class="player-display-box">
+                    <div class="role-label">돼지</div>
+                    <div class="player-info">
+                        <span class="player-nickname-display">없음</span>
+                        <span class="player-ready-status-display"></span>
+                    </div>
+                    <button class="role-btn" data-role="돼지">돼지 선택</button>
+                </div>
+                <div id="rabbit-player-display" class="player-display-box">
+                    <div class="role-label">토끼</div>
+                    <div class="player-info">
+                        <span class="player-nickname-display">없음</span>
+                        <span class="player-ready-status-display"></span>
+                    </div>
+                    <button class="role-btn" data-role="토끼">토끼 선택</button>
+                </div>
+            </div>
+            <div id="spectator-list-container">
+                <div class="spectator-label">관전자</div>
+                <div id="spectator-list"></div>
+                <button class="role-btn" data-role="관전">관전하기</button>
+            </div>
+            <button id="back-to-lobby-button">로비로 돌아가기</button>
+        </div>
         <div id="ranking-screen" class="hidden">
             <h1 class="ranking-title">랭킹</h1>
             <div class="ranking-role-selector">
@@ -43,6 +76,9 @@
                     <label for="time-input">시간:</label>
                     <input type="number" id="time-input" min="1" max="999" value="4">
                 </div>
+            </div>
+            <div id="online-button-container">
+                <button id="online-button">멀티</button>
             </div>
             <div id="nickname-settings" class="hidden">
                 <div class="setting-item">
