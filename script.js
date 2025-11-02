@@ -1660,7 +1660,11 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('리플레이 종료');
             gameScreen.classList.add('hidden');
             gameScreen.innerHTML = '';
-            showRankingScreen(); // Go back to ranking screen when replay ends
+            if (bgmSourceNode) {
+                bgmSourceNode.stop();
+                bgmSourceNode = null;
+            }
+            showRankingScreen();
             return;
         }
 
@@ -1689,6 +1693,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (playerLives <= 0) {
                     showToast('리플레이 종료 - 게임 오버');
                     isReplaying = false;
+                    if (bgmSourceNode) {
+                        bgmSourceNode.stop();
+                        bgmSourceNode = null;
+                    }
                     showRankingScreen();
                     return;
                 }
