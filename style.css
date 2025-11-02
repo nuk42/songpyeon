@@ -976,3 +976,64 @@ img {
 #back-to-lobby-button:hover {
     background-color: #d32f2f;
 }
+
+#audio-controls {
+    position: absolute;
+    top: 6em; /* Adjust position to not overlap fullscreen button */
+    left: 1em;
+    display: flex;
+    flex-direction: column; /* Vertical layout */
+    gap: 15px; /* Space between buttons */
+    z-index: 20;
+}
+
+.audio-control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.audio-btn {
+    width: 40px;
+    height: 40px;
+    background-color: #555;
+    color: white;
+    border: 1px solid #777;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+
+.slider-container {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.3s ease-in-out;
+}
+
+.slider-container.visible {
+    width: 120px; /* Width when slider is visible */
+}
+
+.volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 8px;
+    background: #ddd;
+    outline: none;
+    border-radius: 5px;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #4CAF50;
+    cursor: pointer;
+    border-radius: 50%;
+}

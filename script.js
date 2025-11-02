@@ -25,6 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const createRoomButton = document.getElementById('create-room-button');
     const backToMainFromLobbyButton = document.getElementById('back-to-main-from-lobby-button');
 
+    const bgmAudio = document.getElementById('bgm-audio');
+    const musicBtn = document.getElementById('music-btn');
+    const sfxBtn = document.getElementById('sfx-btn');
+    const musicSlider = document.getElementById('music-slider');
+    const sfxSlider = document.getElementById('sfx-slider');
+    const musicSliderContainer = musicSlider.parentElement;
+    const sfxSliderContainer = sfxSlider.parentElement;
+
     const roomScreen = document.getElementById('room-screen');
     const currentRoomIdDisplay = document.getElementById('current-room-id');
     const roleButtons = document.querySelectorAll('.role-btn');
@@ -86,6 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let lifeLostInReplayRound = false;
     let serverAddress = ''; // Default server address
 
+    // --- SFX State ---
+    let sfxAudioMap = {};
+    let lastDoughHitTime = 0;
+    let doughSequenceCounter = 0;
+
     // =================================================================
     // SECTION 1: CORE HELPER FUNCTIONS
     // =================================================================
@@ -113,6 +126,59 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.classList.remove('show');
             setTimeout(() => { if (toast.parentElement) toast.remove(); }, 500);
         }, 2000);
+    };
+
+    const loadAudioSettings = () => {
+        const musicVolume = localStorage.getItem('musicVolume') ?? '0.5';
+        const sfxVolume = localStorage.getItem('sfxVolume') ?? '0.5';
+
+        musicSlider.value = musicVolume;
+        bgmAudio.volume = musicVolume;
+
+        sfxSlider.value = sfxVolume;
+    };
+
+    const saveAudioSettings = () => {
+        localStorage.setItem('musicVolume', musicSlider.value);
+        localStorage.setItem('sfxVolume', sfxSlider.value);
+    };
+
+    const preloadSfx = async () => {
+        try {
+            const response = await fetch('sfx_config.json');
+            if (!response.ok) throw new Error('SFX config fetch failed');
+            const sfxFiles = await response.json();
+            for (const key in sfxFiles) {
+                sfxAudioMap[key] = new Audio(sfxFiles[key]);
+            }
+        } catch (error) {
+            console.error("Failed to load SFX config:", error);
+            alert("효과음 설정을 불러오는 데 실패했습니다.");
+        }
+    };
+
+    const playSfx = (commandId) => {
+        if (sfxSlider.value == 0) return;
+
+        let audioToPlay;
+        if (commandId === 8) {
+            const now = performance.now();
+            if (now - lastDoughHitTime < 50) {
+                doughSequenceCounter = (doughSequenceCounter + 1) % 4;
+            } else {
+                doughSequenceCounter = 0;
+            }
+            lastDoughHitTime = now;
+            audioToPlay = sfxAudioMap[`8_${doughSequenceCounter}`];
+        } else {
+            audioToPlay = sfxAudioMap[commandId];
+        }
+
+        if (audioToPlay) {
+            const sfx = audioToPlay.cloneNode();
+            sfx.volume = sfxSlider.value;
+            sfx.play().catch(e => console.error("SFX play failed:", e));
+        }
     };
 
     const patternGenerator = {
@@ -276,8 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const nickname = nicknameInput.value.trim();
             if (!nickname) {
                 gameRecorder.stop();
-                alert(`게임 결과: ${currentRound} 라운드
-(닉네임이 없어 기록이 저장되지 않았습니다.)`);
+                alert(`게임 결과: ${currentRound} 라운드\n(닉네임이 없어 기록이 저장되지 않았습니다.)`);
                 showMainScreen();
                 return; // Exit without saving
             }
@@ -355,6 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (glowAnimationInterval) clearInterval(glowAnimationInterval);
             const glowElement = gameScreen.querySelector('.glow-indicator');
             if (glowElement) glowElement.classList.add('hidden');
+            playSfx('success');
             showToast('성공');
             const scrollContent = gameScreen.querySelector('.scroll-content');
                     if (scrollContent) scrollContent.style.display = 'none';
@@ -364,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 nextRoundTimeoutId = setTimeout(startNewRound, 1000); // Restart round after a short delay
             }
         } else { // Round failed (e.g., timeout)
+            playSfx('fail');
             showToast('실패');
             if (!isPracticeMode && !isMashPracticeMode) {
                 lifeLostInPreviousRound = true;
@@ -376,6 +443,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const handleCorrectInput = (isPlayer = false, commandId = -1) => {
+        const effectiveCommandId = isPlayer ? commandId : gamePattern[currentGameIndex];
+        playSfx(effectiveCommandId);
+
         if (gameRecorder.isRecording() && !isReplaying) {
             const source = isPlayer ? 'p' : 'b';
             const id = isPlayer ? commandId : gamePattern[currentGameIndex];
@@ -839,9 +909,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add spectators from gameState.spectators (those not in playerInfo with a role)
         (gameState.spectators || []).forEach(spectatorObj => {
             // Only add if not already listed as a player with a role
-            const isAlreadyListed =
-                                    currentSpectators.some(p => p.id === spectatorObj.id) ||
-                                    (pigPlayer && pigPlayer.id === spectatorObj.id) ||
+            const isAlreadyListed = 
+                                    currentSpectators.some(p => p.id === spectatorObj.id) || 
+                                    (pigPlayer && pigPlayer.id === spectatorObj.id) || 
                                     (rabbitPlayer && rabbitPlayer.id === spectatorObj.id);
             if (!isAlreadyListed) {
                 currentSpectators.push({ id: spectatorObj.id, nickname: spectatorObj.nickname, isReady: false });
@@ -873,6 +943,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showMainScreen = () => {
+        bgmAudio.pause();
+        bgmAudio.currentTime = 0;
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
         if (roundTimer) clearTimeout(roundTimer);
@@ -1074,6 +1146,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showGameScreen = async (role, isReplay = false, replayTteokKey = null, serverPattern = null, serverTteokKey = null) => {
+        if (bgmAudio.volume > 0) {
+            bgmAudio.play().catch(e => console.error("Audio play failed:", e));
+        }
         let targetTteokKey = replayTteokKey || serverTteokKey;
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
@@ -1228,7 +1303,12 @@ document.addEventListener('DOMContentLoaded', () => {
             gameRecorder.add('P', gamePattern.join(''));
         }
 
-        const getIconPath=(id)=>{const s1=[1,2,3,6],s2=[4,5,7,8];if(s1.includes(id))return`res/thanksgiving2024_room_command${id}.png`;if(s2.includes(id))return`res/thanksgiving_room_command${id}.png`;return'';};
+        const getIconPath=(id)=>{
+            const s1=[1,2,3,6],s2=[4,5,7,8];
+            if(s1.includes(id))return`res/thanksgiving2024_room_command${id}.png`;
+            if(s2.includes(id))return`res/thanksgiving_room_command${id}.png`;
+            return'';
+        };
         const commandBoxesHTML = pattern.map(row => `
             <div class="command-box">
                 ${row.map(id => `
@@ -1898,6 +1978,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
 
     const initializeApp = async () => {
+        loadAudioSettings();
+        await preloadSfx();
+
+        musicBtn.addEventListener('click', () => {
+            musicSliderContainer.classList.toggle('visible');
+        });
+
+        sfxBtn.addEventListener('click', () => {
+            sfxSliderContainer.classList.toggle('visible');
+        });
+
+        musicSlider.addEventListener('input', () => {
+            bgmAudio.volume = musicSlider.value;
+            saveAudioSettings();
+        });
+
+        sfxSlider.addEventListener('input', () => {
+            // Later: Update SFX volume here
+            saveAudioSettings();
+        });
+
         try {
             const response = await fetch('config.json');
             if (response.ok) {
@@ -1999,8 +2100,12 @@ document.addEventListener('DOMContentLoaded', () => {
             fullscreenToggle.style.visibility = 'hidden';
         }
 
-        const savedPracticeMode = localStorage.getItem('isPracticeMode');
-        isPracticeMode = savedPracticeMode === null ? true : (savedPracticeMode === 'true');
+        // Restore saved settings
+        const savedNickname = localStorage.getItem('nickname') || '';
+        nicknameInput.value = savedNickname;
+
+        const savedPracticeMode = localStorage.getItem('isPracticeMode') === 'true';
+        isPracticeMode = savedPracticeMode;
         practiceToggle.textContent = `연습모드: ${isPracticeMode ? '켬' : '끔'}`;
         if (isPracticeMode) {
             practiceSettings.classList.remove('hidden');
@@ -2012,15 +2117,10 @@ document.addEventListener('DOMContentLoaded', () => {
             onlineButtonContainer.classList.remove('hidden');
         }
 
-        const savedLines = localStorage.getItem('practiceLines') || '5';
-        const savedTime = localStorage.getItem('practiceTime') || '4';
-        linesInput.value = savedLines;
-        timeInput.value = savedTime;
-        lastValidLines = savedLines;
-        lastValidTime = savedTime;
-
-        const savedNickname = localStorage.getItem('nickname') || '';
-        nicknameInput.value = savedNickname;
+        linesInput.value = localStorage.getItem('practiceLines') || 5;
+        timeInput.value = localStorage.getItem('practiceTime') || 4;
+        lastValidLines = linesInput.value;
+        lastValidTime = timeInput.value;
     };
 
     initializeApp();

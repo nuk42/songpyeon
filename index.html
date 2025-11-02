@@ -88,8 +88,23 @@
             </div>
             <div id="practice-toggle">연습모드: 끔</div>
             <div id="fullscreen-toggle" style="cursor: pointer; color: white; margin-top: 10px;">전체화면</div>
+            <div id="audio-controls">
+                <div class="audio-control-group">
+                    <button id="music-btn" class="audio-btn">🎵</button>
+                    <div class="slider-container">
+                        <input type="range" id="music-slider" class="volume-slider" min="0" max="1" step="0.01">
+                    </div>
+                </div>
+                <div class="audio-control-group">
+                    <button id="sfx-btn" class="audio-btn">🔊</button>
+                    <div class="slider-container">
+                        <input type="range" id="sfx-slider" class="volume-slider" min="0" max="1" step="0.01">
+                    </div>
+                </div>
+            </div>
         </footer>
     </div>
+    <audio id="bgm-audio" loop src="res/audio/rabbit_game_bgm.mp3"></audio>
     <script src="script.js" type="module"></script>
 </body>
 </html>
