@@ -766,10 +766,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         const glowElement = gameScreen.querySelector('.glow-indicator');
                         if (glowElement) glowElement.classList.add('hidden');
 
+                        playSfx('success'); // 성공 효과음 추가
                         showToast('성공');
                         const scrollContent = gameScreen.querySelector('.scroll-content');
                         if (scrollContent) scrollContent.style.display = 'none';
                     } else {
+                        playSfx('fail'); // 실패 효과음 추가
                         showToast('실패');
                         if (data.failedRole) { // Only show animation if a player made a direct mistake
                             showMissAnimation(data.failedRole);
@@ -780,6 +782,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'gameOver':
                     clearInterval(gameStartCountdownInterval);
                     alert(data.message);
+                    if (bgmSourceNode) {
+                        bgmSourceNode.stop();
+                        bgmSourceNode = null;
+                    }
                     // Instead of showMainScreen(), show the room screen with the updated state
                     showRoomScreen(data.gameState);
                     break;
