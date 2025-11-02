@@ -10,11 +10,11 @@
     },
     {
       "rounds": "11-14",
-      "availableTteok": ["Clam", "Flower", "Pumpkin", "Fruit", "Rabbit", "Tiger", "Pig", "Arrowroot", "Ramie", "Acorn", "Pine"]
+      "availableTteok": ["Clam", "Flower", "Pumpkin", "Fruit", "Rabbit", "Tiger", "Pig"]
     },
     {
       "rounds": "15-",
-      "availableTteok": ["Clam", "Flower", "Pumpkin", "Fruit", "Rabbit", "Tiger", "Pig", "Wrapper", "Manggae_leaf", "Arrowroot", "Ramie", "Acorn", "Pine", "Manggae_leaf"]
+      "availableTteok": ["Clam", "Flower", "Pumpkin", "Fruit", "Rabbit", "Tiger", "Pig", "Wrapper", "Manggae_leaf"]
     }
   ]
 }

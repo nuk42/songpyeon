@@ -23,8 +23,40 @@
     "Tiger": {},
     "Pig": {},
     "Pink": {},
-    "Wrapper": {},
-    "Manggae_leaf": {},
+    "Wrapper": {
+      "overrides": {
+        "pattern_extension_level": [
+          { "rounds": "1-29", "value": 1 },
+          { "rounds": "30-34", "value": 4 },
+          { "rounds": "35-54", "value": 7 },
+          { "rounds": "55-64", "value": 10 },
+          { "rounds": "65-74", "value": 13 },
+          { "rounds": "75-84", "value": 16 },
+          { "rounds": "85-94", "value": 19 },
+          { "rounds": "95-104", "value": 22 },
+          { "rounds": "105-114", "value": 25 },
+          { "rounds": "115-124", "value": 28 },
+          { "rounds": "125-", "value": 31 }
+        ]
+      }
+    },
+    "Manggae_leaf": {
+      "overrides": {
+        "pattern_extension_level": [
+          { "rounds": "1-29", "value": 1 },
+          { "rounds": "30-34", "value": 4 },
+          { "rounds": "35-54", "value": 7 },
+          { "rounds": "55-64", "value": 10 },
+          { "rounds": "65-74", "value": 13 },
+          { "rounds": "75-84", "value": 16 },
+          { "rounds": "85-94", "value": 19 },
+          { "rounds": "95-104", "value": 22 },
+          { "rounds": "105-114", "value": 25 },
+          { "rounds": "115-124", "value": 28 },
+          { "rounds": "125-", "value": 31 }
+        ]
+      }
+    },
     "Mugwort": {},
     "Potato": {},
     "Violet_Sweet_Ptato": {},

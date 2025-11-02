@@ -25,7 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const createRoomButton = document.getElementById('create-room-button');
     const backToMainFromLobbyButton = document.getElementById('back-to-main-from-lobby-button');
 
-    const bgmAudio = document.getElementById('bgm-audio');
+    // Web Audio API state for BGM
+    let audioContext;
+    let bgmBuffer = null;
+    let bgmSourceNode = null;
+    let bgmGainNode;
+
     const musicBtn = document.getElementById('music-btn');
     const sfxBtn = document.getElementById('sfx-btn');
     const musicSlider = document.getElementById('music-slider');
@@ -133,7 +138,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const sfxVolume = localStorage.getItem('sfxVolume') ?? '0.5';
 
         musicSlider.value = musicVolume;
-        bgmAudio.volume = musicVolume;
+        if (bgmGainNode) {
+            bgmGainNode.gain.value = musicVolume;
+        }
 
         sfxSlider.value = sfxVolume;
     };
@@ -143,14 +150,31 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('sfxVolume', sfxSlider.value);
     };
 
+    const loadBgm = async () => {
+        if (!audioContext) return;
+        try {
+            const response = await fetch('res/audio/rabbit_game_bgm.mp3');
+            const arrayBuffer = await response.arrayBuffer();
+            bgmBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        } catch (error) {
+            console.error("Failed to load BGM:", error);
+            alert("배경음악을 불러오는 데 실패했습니다.");
+        }
+    };
+
     const preloadSfx = async () => {
+        if (!audioContext) return;
         try {
             const response = await fetch('sfx_config.json');
             if (!response.ok) throw new Error('SFX config fetch failed');
             const sfxFiles = await response.json();
-            for (const key in sfxFiles) {
-                sfxAudioMap[key] = new Audio(sfxFiles[key]);
-            }
+            const promises = Object.keys(sfxFiles).map(async (key) => {
+                const path = sfxFiles[key];
+                const response = await fetch(path);
+                const arrayBuffer = await response.arrayBuffer();
+                sfxAudioMap[key] = await audioContext.decodeAudioData(arrayBuffer);
+            });
+            await Promise.all(promises);
         } catch (error) {
             console.error("Failed to load SFX config:", error);
             alert("효과음 설정을 불러오는 데 실패했습니다.");
@@ -158,9 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const playSfx = (commandId) => {
-        if (sfxSlider.value == 0) return;
+        if (sfxSlider.value == 0 || !audioContext) return;
 
-        let audioToPlay;
+        let audioBuffer;
         if (commandId === 8) {
             const now = performance.now();
             if (now - lastDoughHitTime < 50) {
@@ -169,15 +193,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 doughSequenceCounter = 0;
             }
             lastDoughHitTime = now;
-            audioToPlay = sfxAudioMap[`8_${doughSequenceCounter}`];
+            audioBuffer = sfxAudioMap[`8_${doughSequenceCounter}`];
         } else {
-            audioToPlay = sfxAudioMap[commandId];
+            audioBuffer = sfxAudioMap[commandId];
         }
 
-        if (audioToPlay) {
-            const sfx = audioToPlay.cloneNode();
-            sfx.volume = sfxSlider.value;
-            sfx.play().catch(e => console.error("SFX play failed:", e));
+        if (audioBuffer) {
+            const source = audioContext.createBufferSource();
+            const gainNode = audioContext.createGain();
+            source.buffer = audioBuffer;
+            gainNode.gain.value = sfxSlider.value;
+            source.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            source.start(0);
         }
     };
 
@@ -943,8 +971,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showMainScreen = () => {
-        bgmAudio.pause();
-        bgmAudio.currentTime = 0;
+        if (bgmSourceNode) {
+            bgmSourceNode.stop();
+            bgmSourceNode = null;
+        }
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
         if (roundTimer) clearTimeout(roundTimer);
@@ -1146,9 +1176,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showGameScreen = async (role, isReplay = false, replayTteokKey = null, serverPattern = null, serverTteokKey = null) => {
-        if (bgmAudio.volume > 0) {
-            bgmAudio.play().catch(e => console.error("Audio play failed:", e));
+        if (bgmBuffer && !bgmSourceNode && audioContext.state !== 'suspended') {
+            bgmSourceNode = audioContext.createBufferSource();
+            bgmSourceNode.buffer = bgmBuffer;
+            bgmSourceNode.loop = true;
+            bgmSourceNode.connect(bgmGainNode);
+            bgmSourceNode.start(0);
         }
+
         let targetTteokKey = replayTteokKey || serverTteokKey;
         if (glowAnimationInterval) clearInterval(glowAnimationInterval);
         if (missAnimationInterval) clearInterval(missAnimationInterval);
@@ -1978,8 +2013,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // =================================================================
 
     const initializeApp = async () => {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            bgmGainNode = audioContext.createGain();
+            bgmGainNode.connect(audioContext.destination);
+        } catch (e) {
+            console.error("Web Audio API is not supported in this browser");
+        }
+
         loadAudioSettings();
-        await preloadSfx();
+        await Promise.all([preloadSfx(), loadBgm()]);
 
         musicBtn.addEventListener('click', () => {
             musicSliderContainer.classList.toggle('visible');
@@ -1990,7 +2033,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         musicSlider.addEventListener('input', () => {
-            bgmAudio.volume = musicSlider.value;
+            if(bgmGainNode) bgmGainNode.gain.value = musicSlider.value;
             saveAudioSettings();
         });
 
