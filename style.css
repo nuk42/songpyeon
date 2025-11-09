@@ -15,6 +15,7 @@ body {
     overflow: hidden;
     background-color: #333;
     overscroll-behavior-y: none; /* Prevent mobile bounce/drag */
+    touch-action: manipulation;
 }
 
 img {
