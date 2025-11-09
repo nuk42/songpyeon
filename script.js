@@ -1814,7 +1814,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         button.addEventListener('mouseleave', handleRelease);
         
-        button.addEventListener('touchstart', handlePress, { passive: true });
+        button.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handlePress(e);
+        });
         button.addEventListener('touchend', (e) => {
             e.preventDefault();
             handleRelease(e);
