@@ -214,9 +214,58 @@ document.addEventListener('DOMContentLoaded', () => {
         pigSpecialIcon: 6,
         rabbitNormalIcons: [4, 5, 7],
         rabbitSpecialIcon: 8,
-        generatePigPair(p){p.push(this.pigNormalIcons[Math.floor(Math.random()*this.pigNormalIcons.length)]);p.push(this.pigSpecialIcon);},
-        generateRabbitPair(p){if(Math.random()<0.5){p.push(this.rabbitSpecialIcon);p.push(this.rabbitSpecialIcon);}else{p.push(this.rabbitNormalIcons[Math.floor(Math.random()*this.rabbitNormalIcons.length)]);p.push(this.rabbitNormalIcons[Math.floor(Math.random()*this.rabbitNormalIcons.length)]);}},
-        generateFullPattern(totalCount,role=null){const p=[];const pairs=totalCount/2;const rm={'돼지':'Pig','토끼':'Rabbit'};const gr=rm[role]||null;if(gr===null){for(let i=0;i<pairs;i++){if(Math.random()<0.5){this.generatePigPair(p);}else{this.generateRabbitPair(p);}}}else if(gr==='Pig'){for(let i=0;i<pairs;i++)this.generatePigPair(p);}else if(gr==='Rabbit'){for(let i=0;i<pairs;i++)this.generateRabbitPair(p);}const fp=[];for(let i=0;i<p.length;i+=6){fp.push(p.slice(i,i+6));}return fp;}
+        generatePigPair(p) { p.push(this.pigNormalIcons[Math.floor(Math.random() * this.pigNormalIcons.length)]); p.push(this.pigSpecialIcon); },
+        // This is now only used for mixed mode.
+        generateRabbitPair(p) { if (Math.random() < 0.5) { p.push(this.rabbitSpecialIcon); p.push(this.rabbitSpecialIcon); } else { p.push(this.rabbitNormalIcons[Math.floor(Math.random() * this.rabbitNormalIcons.length)]); p.push(this.rabbitNormalIcons[Math.floor(Math.random() * this.rabbitNormalIcons.length)]); } },
+        generateFullPattern(totalCount, role = null) {
+            const p = [];
+            const rm = { '돼지': 'Pig', '토끼': 'Rabbit' };
+            const gr = rm[role] || null;
+
+            if (gr === 'Rabbit') {
+                // --- New Rabbit Logic (from Game.kt) ---
+                const lines = totalCount / 6;
+                for (let i = 0; i < lines; i++) {
+                    let specialIconCount = 0;
+                    for (let j = 0; j < 6; j++) {
+                        const isLastInLine = (j === 5);
+                        if (specialIconCount % 2 === 0) { // Even count
+                            if (!isLastInLine && Math.random() < 0.5) {
+                                p.push(this.rabbitSpecialIcon);
+                                specialIconCount++;
+                            } else {
+                                p.push(this.rabbitNormalIcons[Math.floor(Math.random() * this.rabbitNormalIcons.length)]);
+                            }
+                        } else { // Odd count
+                            p.push(this.rabbitSpecialIcon);
+                            specialIconCount++;
+                        }
+                    }
+                }
+            } else {
+                // --- Original Logic for Pig and Mixed ---
+                const pairs = totalCount / 2;
+                if (gr === null) { // Mixed mode
+                    for (let i = 0; i < pairs; i++) {
+                        if (Math.random() < 0.5) {
+                            this.generatePigPair(p);
+                        } else {
+                            this.generateRabbitPair(p);
+                        }
+                    }
+                } else if (gr === 'Pig') { // Pig mode
+                    for (let i = 0; i < pairs; i++) {
+                        this.generatePigPair(p);
+                    }
+                }
+            }
+
+            const fp = [];
+            for (let i = 0; i < p.length; i += 6) {
+                fp.push(p.slice(i, i + 6));
+            }
+            return fp;
+        }
     };
 
     // =================================================================
