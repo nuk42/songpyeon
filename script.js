@@ -2037,12 +2037,12 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('touchstart', (e) => {
             e.preventDefault();
             handlePress(e);
-        });
+        }, { passive: false });
         button.addEventListener('touchend', (e) => {
             e.preventDefault();
             handleRelease(e);
             handleActivation(e);
-        });
+        }, { passive: false });
         button.addEventListener('touchcancel', handleRelease);
     }
 
@@ -2139,7 +2139,7 @@ document.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('mouseleave', cancelPress);
             
             button.addEventListener('touchstart', (e) => { e.preventDefault(); startPress(e); }, { passive: false });
-            button.addEventListener('touchend', (e) => { e.preventDefault(); endPress(e); });
+            button.addEventListener('touchend', (e) => { e.preventDefault(); endPress(e); }, { passive: false });
             button.addEventListener('touchcancel', cancelPress);
 
         } else {
