@@ -1050,13 +1050,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 case 'gameOver':
                     clearInterval(gameStartCountdownInterval);
-                    alert(data.message);
                     if (bgmSourceNode) {
                         bgmSourceNode.stop();
                         bgmSourceNode = null;
                     }
-                    // Instead of showMainScreen(), show the room screen with the updated state
                     showRoomScreen(data.gameState);
+                    addChatMessage('system', null, data.message);
                     break;
                 case 'roleChangeFailed':
                     showToast(data.message);
