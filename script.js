@@ -1989,7 +1989,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handlePress(event) {
         const target = event.currentTarget;
-        if (gameFailed && target.classList.contains('floor-button')) return;
         target.classList.add('pressed');
         if (target.classList.contains('floor-button') && target.src.includes('_unpressed.png')) {
             target.src = target.src.replace('_unpressed.png', '_pressed.png');
