@@ -141,7 +141,8 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'GO': { const i = rest.indexOf('|'); return { type: 'gameOver', message: rest.substring(0, i), gameState: decodeGS(rest.substring(i + 1)) }; }
             case 'RF': return { type: 'roleChangeFailed', message: rest };
             case 'JF': return { type: 'joinRoomFailed', message: rest };
-            case 'CT': { const i = rest.indexOf('|'); return { type: 'chat', nickname: rest.substring(0, i), message: rest.substring(i + 1) }; }
+            case 'CT': { const parts = rest.split('|'); return { type: 'chat', playerId: parseInt(parts[0], 10), nickname: parts[1], message: parts.slice(2).join('') }; }
+            case 'SY': return { type: 'systemMessage', message: rest };
             default: return null;
         }
     }
@@ -796,15 +797,27 @@ document.addEventListener('DOMContentLoaded', () => {
         updateKeybindDisplays();
     };
 
-    const addChatMessage = (nickname, message) => {
+    const addChatMessage = (type, nickname, message) => {
         if (!chatMessages) return;
         const msg = document.createElement('div');
-        msg.className = 'chat-message';
-        const nick = document.createElement('span');
-        nick.className = 'chat-nickname';
-        nick.textContent = nickname + ':';
-        msg.appendChild(nick);
-        msg.appendChild(document.createTextNode(' ' + message));
+        msg.className = `chat-message ${type}`;
+        if (type === 'system') {
+            const text = document.createElement('div');
+            text.className = 'chat-system-text';
+            text.textContent = message;
+            msg.appendChild(text);
+        } else {
+            if (type === 'other') {
+                const nick = document.createElement('div');
+                nick.className = 'chat-nick';
+                nick.textContent = nickname;
+                msg.appendChild(nick);
+            }
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            bubble.textContent = message;
+            msg.appendChild(bubble);
+        }
         chatMessages.appendChild(msg);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     };
@@ -935,7 +948,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast(data.message);
                     break;
                 case 'chat':
-                    addChatMessage(data.nickname, data.message);
+                    addChatMessage(data.playerId === myClientId ? 'mine' : 'other', data.nickname, data.message);
+                    break;
+                case 'systemMessage':
+                    addChatMessage('system', null, data.message);
                     break;
             }
         };
