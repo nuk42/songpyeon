@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rankingButtonContainer = document.querySelector('.ranking-button-container');
     const onlineButtonContainer = document.getElementById('online-button-container');
     const onlineButton = document.getElementById('online-button');
+    const serverScreen = document.getElementById('server-screen');
     const lobbyScreen = document.getElementById('lobby-screen');
     const roomList = document.getElementById('room-list');
     const createRoomButton = document.getElementById('create-room-button');
@@ -104,9 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let serverAddress = '';
 
     const SERVERS = [
-        { name: '한국', flag: '🇰🇷', url: 'wss://port-0-songpyeon-mt9wj7y76fb82d10.sel3.cloudtype.app/' },
-        { name: '미국', flag: '🇺🇸', url: 'wss://songpyeon.duckdns.org/ws' },
+        { id: 'kr', name: '한국', url: 'wss://port-0-songpyeon-mt9wj7y76fb82d10.sel3.cloudtype.app/' },
+        { id: 'us', name: '미국', url: 'wss://songpyeon.duckdns.org/ws' },
     ];
+
+    const getFlagSVG = (id) => {
+        if (id === 'kr') return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><rect width="60" height="40" fill="white"/><clipPath id="c_kr"><circle cx="30" cy="20" r="9"/></clipPath><g clip-path="url(#c_kr)"><rect x="21" y="11" width="18" height="18" fill="#CD2E3A"/><rect x="21" y="20" width="18" height="9" fill="#003478"/><circle cx="30" cy="15.5" r="4.5" fill="#003478"/><circle cx="30" cy="24.5" r="4.5" fill="#CD2E3A"/></g><g stroke="#000" stroke-width="1.3" stroke-linecap="butt"><line x1="4" y1="8" x2="11" y2="8"/><line x1="4" y1="10.5" x2="11" y2="10.5"/><line x1="4" y1="13" x2="11" y2="13"/><line x1="49" y1="8" x2="56" y2="8"/><line x1="49" y1="10.5" x2="56" y2="10.5"/><line x1="49" y1="13" x2="56" y2="13"/><line x1="4" y1="27" x2="11" y2="27"/><line x1="4" y1="29.5" x2="11" y2="29.5"/><line x1="4" y1="32" x2="11" y2="32"/><line x1="49" y1="27" x2="56" y2="27"/><line x1="49" y1="29.5" x2="56" y2="29.5"/><line x1="49" y1="32" x2="56" y2="32"/></g></svg>`;
+        if (id === 'us') return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><rect width="60" height="40" fill="#B22234"/><rect y="3.08" width="60" height="3.08" fill="white"/><rect y="9.23" width="60" height="3.08" fill="white"/><rect y="15.38" width="60" height="3.08" fill="white"/><rect y="21.54" width="60" height="3.08" fill="white"/><rect y="27.69" width="60" height="3.08" fill="white"/><rect y="33.85" width="60" height="3.08" fill="white"/><rect width="24" height="21.54" fill="#3C3B6E"/><g fill="white"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="11" cy="3" r="1.3"/><circle cx="15" cy="3" r="1.3"/><circle cx="19" cy="3" r="1.3"/><circle cx="23" cy="3" r="1.3"/><circle cx="5" cy="7.5" r="1.3"/><circle cx="9" cy="7.5" r="1.3"/><circle cx="13" cy="7.5" r="1.3"/><circle cx="17" cy="7.5" r="1.3"/><circle cx="21" cy="7.5" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="7" cy="12" r="1.3"/><circle cx="11" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="23" cy="12" r="1.3"/><circle cx="5" cy="16.5" r="1.3"/><circle cx="9" cy="16.5" r="1.3"/><circle cx="13" cy="16.5" r="1.3"/><circle cx="17" cy="16.5" r="1.3"/><circle cx="21" cy="16.5" r="1.3"/><circle cx="3" cy="21" r="1.3"/><circle cx="7" cy="21" r="1.3"/><circle cx="11" cy="21" r="1.3"/><circle cx="15" cy="21" r="1.3"/><circle cx="19" cy="21" r="1.3"/><circle cx="23" cy="21" r="1.3"/></g></svg>`;
+        return '';
+    };
 
     // ── Protocol helpers ───────────────────────────────────────────────────────
     const CODE_TO_ROLE = { 'P': '돼지', 'R': '토끼', 'S': '관전' };
@@ -828,17 +835,27 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) { clearTimeout(timer); resolve(null); }
     });
 
-    const openServerModal = () => {
-        const modal = document.getElementById('server-modal');
-        const listEl = document.getElementById('server-list');
-        listEl.innerHTML = '';
-        modal.classList.remove('hidden');
+    const showServerScreen = () => {
+        mainContent.classList.add('hidden');
+        footerSettings.classList.add('hidden');
+        rankingScreen.classList.add('hidden');
+        gameScreen.classList.add('hidden');
+        lobbyScreen.classList.add('hidden');
+        roomScreen.classList.add('hidden');
+        rankingButtonContainer.classList.add('hidden');
+        onlineButtonContainer.classList.add('hidden');
+        serverScreen.classList.remove('hidden');
+        renderServerCards();
+    };
 
+    const renderServerCards = () => {
+        const listEl = document.getElementById('server-card-list');
+        listEl.innerHTML = '';
         SERVERS.forEach(server => {
             const card = document.createElement('div');
-            card.className = 'server-card' + (serverAddress === server.url ? ' selected' : '');
+            card.className = 'server-card';
             card.innerHTML = `
-                <span class="server-flag">${server.flag}</span>
+                <div class="server-flag-svg">${getFlagSVG(server.id)}</div>
                 <div class="server-info">
                     <div class="server-name">${server.name}</div>
                     <div class="server-ping-row">
@@ -851,7 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="ping-text">측정 중...</span>
                     </div>
                 </div>
-                <button class="server-btn${serverAddress === server.url ? ' current' : ''}">${serverAddress === server.url ? '현재 서버' : '선택'}</button>
+                <button class="server-btn">접속</button>
             `;
             listEl.appendChild(card);
 
@@ -859,16 +876,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const pingEl = card.querySelector('.ping-text');
             const btn = card.querySelector('.server-btn');
 
-            if (!btn.classList.contains('current')) {
-                btn.addEventListener('click', () => {
-                    serverAddress = server.url;
-                    localStorage.setItem('serverAddress', server.url);
-                    showToast(`${server.flag} ${server.name} 서버 선택됨`);
-                    modal.classList.add('hidden');
-                });
-            }
+            btn.addEventListener('click', () => {
+                serverAddress = server.url;
+                localStorage.setItem('serverAddress', server.url);
+                connectToServer();
+            });
 
-            // 핑 측정 후 UI 업데이트
             measurePing(server.url).then(ms => {
                 let level, cls, textCls;
                 if (ms === null) {
@@ -1075,7 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderRoomList = (rooms) => {
         roomList.innerHTML = '';
         if (rooms.length === 0) {
-            roomList.innerHTML = '<div class="loading-text">생성된 방이 없습니다.</div>';
+            roomList.innerHTML = '<div class="lobby-empty">방이 없어요<span>+ 방 만들기로 시작해보세요!</span></div>';
             return;
         }
         rooms.forEach(room => {
@@ -1083,10 +1096,9 @@ document.addEventListener('DOMContentLoaded', () => {
             roomItem.className = 'room-item';
             roomItem.innerHTML = `
                 <span class="room-name">${room.id}</span>
-                <span class="room-players">${room.players}명</span>
+                <span class="room-player-count">👥 ${room.players}</span>
             `;
             roomItem.addEventListener('click', () => {
-                // Handle joining room
                 showToast(`방 ${room.id}에 입장 시도...`);
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     wsSend('JR', room.id, nicknameInput.value);
@@ -1101,11 +1113,21 @@ document.addEventListener('DOMContentLoaded', () => {
         footerSettings.classList.add('hidden');
         rankingScreen.classList.add('hidden');
         gameScreen.classList.add('hidden');
-        roomScreen.classList.add('hidden'); // Hide room screen
+        roomScreen.classList.add('hidden');
         rankingButtonContainer.classList.add('hidden');
-        onlineButtonContainer.classList.add('hidden'); // Hide online button when in lobby
+        onlineButtonContainer.classList.add('hidden');
+        serverScreen.classList.add('hidden');
 
         lobbyScreen.classList.remove('hidden');
+
+        const badge = document.getElementById('lobby-server-badge');
+        if (badge) {
+            const cur = SERVERS.find(s => s.url === serverAddress);
+            badge.innerHTML = cur
+                ? `<span class="badge-flag">${getFlagSVG(cur.id)}</span><span class="badge-name">${cur.name} 서버</span>`
+                : '';
+        }
+
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send('GR');
         }
@@ -1227,8 +1249,9 @@ document.addEventListener('DOMContentLoaded', () => {
         footerSettings.classList.remove('hidden');
         gameScreen.classList.add('hidden');
         rankingScreen.classList.add('hidden');
-        lobbyScreen.classList.add('hidden'); // Hide lobby screen
-        roomScreen.classList.add('hidden'); // Hide room screen
+        serverScreen.classList.add('hidden');
+        lobbyScreen.classList.add('hidden');
+        roomScreen.classList.add('hidden');
         if (rankingButtonContainer) rankingButtonContainer.classList.remove('hidden');
         if (onlineButtonContainer) {
             if (isPracticeMode) {
@@ -2129,7 +2152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('닉네임을 입력해주세요.');
             return;
         }
-        connectToServer();
+        showServerScreen();
     });
     createRoomButton.addEventListener('click', () => {
         if (!nicknameInput.value.trim()) {
@@ -2163,10 +2186,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    document.getElementById('server-select-btn').addEventListener('click', openServerModal);
-    document.getElementById('server-modal-close').addEventListener('click', () => {
-        document.getElementById('server-modal').classList.add('hidden');
-    });
+    document.getElementById('back-from-server-btn').addEventListener('click', showMainScreen);
 
     chatSendButton.addEventListener('click', sendChat);
     chatInput.addEventListener('keydown', (e) => {

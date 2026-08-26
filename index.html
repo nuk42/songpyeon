@@ -28,21 +28,23 @@
             </div>
         </main>
         <div id="game-screen" class="hidden"></div>
-        <div id="lobby-screen" class="hidden">
-            <div class="lobby-top">
-                <h1 class="lobby-title">온라인 로비</h1>
-                <button id="server-select-btn">🌐 서버</button>
+        <div id="server-screen" class="hidden">
+            <div class="server-screen-header">
+                <div class="server-screen-title">서버 선택</div>
+                <div class="server-screen-sub">연결할 서버를 선택해주세요</div>
             </div>
-            <button id="create-room-button">방 만들기</button>
-            <div id="room-list"></div>
-            <button id="back-to-main-from-lobby-button">돌아가기</button>
+            <div id="server-card-list"></div>
+            <button id="back-from-server-btn">돌아가기</button>
         </div>
-        <div id="server-modal" class="hidden">
-            <div class="server-modal-box">
-                <div class="server-modal-title">서버 선택</div>
-                <div id="server-list"></div>
-                <button id="server-modal-close">닫기</button>
+        <div id="lobby-screen" class="hidden">
+            <div class="lobby-header">
+                <div id="lobby-server-badge"></div>
+                <button id="create-room-button">+ 방 만들기</button>
             </div>
+            <div class="lobby-rooms-wrap">
+                <div id="room-list"></div>
+            </div>
+            <button id="back-to-main-from-lobby-button">돌아가기</button>
         </div>
         <div id="room-screen" class="hidden">
             <div class="room-header">방 <span id="current-room-id"></span></div>
