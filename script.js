@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentRound = 0; // Added currentRound variable
     let currentRoomId = null; // New: Store current room ID
     let myClientId = null; // New: Store my client ID
+    let pendingOptimisticCount = 0; // 낙관적 업데이트 후 서버 확인 대기 중인 입력 수
     let myRole = '관전'; // New: Store my current role, default spectator
 
     let gameStartCountdownInterval = null; // Declare at higher scope
@@ -650,6 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isMyTurn && commandId === expectedCommand) {
                     handleCorrectInput(true, commandId);
                     updateGlowIndicator();
+                    pendingOptimisticCount++;
                 }
             }
             wsSend('PI', currentRoomId, commandId);
@@ -851,8 +853,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     showGameScreen(myRole, false, null, data.pattern, data.tteokKey);
                     break;
                 case 'inputCorrect':
-                    // 내 입력은 이미 낙관적으로 처리됨, 상대방 입력만 반영
-                    if (data.playerId !== myClientId) {
+                    if (data.playerId === myClientId) {
+                        if (pendingOptimisticCount > 0) {
+                            pendingOptimisticCount--; // 낙관적 업데이트로 이미 처리됨
+                        } else {
+                            // 핑 차이로 클라이언트가 틀렸다고 판단했지만 서버 기준 맞음 → 지금 반영
+                            handleCorrectInput(true, data.commandId);
+                            updateGlowIndicator();
+                        }
+                    } else {
                         handleCorrectInput(true, data.commandId);
                         updateGlowIndicator();
                     }
@@ -862,12 +871,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     // This is primarily for server-side logic, client just updates glow based on inputCorrect
                     break;
                 case 'roundEnd':
-                    // Server indicates round outcome
-                    if (roundTimer) clearTimeout(roundTimer); // Clear client-side timer
-                    if (botActionTimeout) clearTimeout(botActionTimeout); // Clear bot timeout
+                    if (roundTimer) clearTimeout(roundTimer);
+                    if (botActionTimeout) clearTimeout(botActionTimeout);
+                    gameFailed = true;
+                    pendingOptimisticCount = 0;
 
-                    playerLives = data.gameState.sharedLives; // Update shared lives from server
-                    updateHeartDisplay(); // Update heart display
+                    playerLives = data.gameState.sharedLives;
+                    updateHeartDisplay();
 
                     if (data.isSuccess) {
                         if (glowAnimationInterval) clearInterval(glowAnimationInterval); // Clear glow
@@ -1440,6 +1450,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         currentGameIndex = 0;
+        pendingOptimisticCount = 0;
         gameFailed = false;
 
         if (!isPracticeMode && !isMashPracticeMode && !isReplay) {
@@ -1480,6 +1491,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         ` : '';
 
+        gameScreen.style.visibility = 'hidden';
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -1640,6 +1652,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
                         positionGlowReliably();
+        gameScreen.style.visibility = '';
 
         if (!isMashPracticeMode) { // Run timer UI for normal games and replays
             const timeLimit = (isPracticeMode && !isReplay) ? parseInt(timeInput.value, 10) : 4;
