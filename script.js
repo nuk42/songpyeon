@@ -1491,7 +1491,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         ` : '';
 
-        gameScreen.style.visibility = 'hidden';
+        // floor 컨테이너 분리 보존 (이벤트 리스너 유지, 재생성 깜빡임 방지)
+        const savedFloor = gameScreen.querySelector('.floor-container');
+        if (savedFloor) savedFloor.remove();
+
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -1599,60 +1602,32 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         
-                        const allGameImgs = gameScreen.querySelectorAll('.command-icon, .recipe-container img');
-        const imageLoadPromises = [];
-        allGameImgs.forEach(icon => {
-            if (!icon.complete) {
-                imageLoadPromises.push(new Promise(resolve => {
-                    icon.onload = resolve;
-                    icon.onerror = resolve;
-                }));
+        // onload 아닌 decode()로 대기 → GPU까지 준비된 후 한번에 렌더
+        await Promise.all(
+            Array.from(gameScreen.querySelectorAll('.command-icon, .recipe-container img'))
+                .map(img => img.decode().catch(() => {}))
+        );
+
+        if (savedFloor) {
+            // 기존 floor 재연결 (버튼/리스너 그대로)
+            savedFloor.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => el.style.visibility = '');
+            gameScreen.querySelector('.floor-container').replaceWith(savedFloor);
+            setupButtonListeners(gameScreen.querySelector('.exit-button'));
+        } else {
+            renderFloorButtons(role);
+        }
+
+        if (isReplay || role === '관전') {
+            const floorContainer = gameScreen.querySelector('.floor-container');
+            if (floorContainer) {
+                floorContainer.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => {
+                    el.style.visibility = 'hidden';
+                });
             }
-        });
-
-        await Promise.all(imageLoadPromises);
-
-        renderFloorButtons(role);
-        
-        
-        
-                                                if (isReplay || role === '관전') {
-                        
-                        
-                        
-                                                    const floorContainer = gameScreen.querySelector('.floor-container');
-                        
-                        
-                        
-                                                    if (floorContainer) {
-                        
-                        
-                        
-                                                        // In replay or spectator mode, hide buttons but keep the container tray
-                        
-                        
-                        
-                                                        floorContainer.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => {
-                        
-                        
-                        
-                                                            el.style.visibility = 'hidden';
-                        
-                        
-                        
-                                                        });
-                        
-                        
-                        
-                                                    }
-                        
-                        
-                        
-                                                }        
+        }
         
         
                         positionGlowReliably();
-        gameScreen.style.visibility = '';
 
         if (!isMashPracticeMode) { // Run timer UI for normal games and replays
             const timeLimit = (isPracticeMode && !isReplay) ? parseInt(timeInput.value, 10) : 4;
@@ -1889,6 +1864,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handlePress(event) {
         const target = event.currentTarget;
+        if (gameFailed && target.classList.contains('floor-button')) return;
         target.classList.add('pressed');
         if (target.classList.contains('floor-button') && target.src.includes('_unpressed.png')) {
             target.src = target.src.replace('_unpressed.png', '_pressed.png');
