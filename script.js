@@ -109,11 +109,13 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'us', name: '미국', url: 'wss://songpyeon.duckdns.org/ws' },
     ];
 
-    const getFlagSVG = (id) => {
-        if (id === 'kr') return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><rect width="60" height="40" fill="white"/><clipPath id="c_kr"><circle cx="30" cy="20" r="9"/></clipPath><g clip-path="url(#c_kr)"><rect x="21" y="11" width="18" height="18" fill="#CD2E3A"/><rect x="21" y="20" width="18" height="9" fill="#003478"/><circle cx="30" cy="15.5" r="4.5" fill="#003478"/><circle cx="30" cy="24.5" r="4.5" fill="#CD2E3A"/></g><g stroke="#000" stroke-width="1.3" stroke-linecap="butt"><line x1="4" y1="8" x2="11" y2="8"/><line x1="4" y1="10.5" x2="11" y2="10.5"/><line x1="4" y1="13" x2="11" y2="13"/><line x1="49" y1="8" x2="56" y2="8"/><line x1="49" y1="10.5" x2="56" y2="10.5"/><line x1="49" y1="13" x2="56" y2="13"/><line x1="4" y1="27" x2="11" y2="27"/><line x1="4" y1="29.5" x2="11" y2="29.5"/><line x1="4" y1="32" x2="11" y2="32"/><line x1="49" y1="27" x2="56" y2="27"/><line x1="49" y1="29.5" x2="56" y2="29.5"/><line x1="49" y1="32" x2="56" y2="32"/></g></svg>`;
-        if (id === 'us') return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40"><rect width="60" height="40" fill="#B22234"/><rect y="3.08" width="60" height="3.08" fill="white"/><rect y="9.23" width="60" height="3.08" fill="white"/><rect y="15.38" width="60" height="3.08" fill="white"/><rect y="21.54" width="60" height="3.08" fill="white"/><rect y="27.69" width="60" height="3.08" fill="white"/><rect y="33.85" width="60" height="3.08" fill="white"/><rect width="24" height="21.54" fill="#3C3B6E"/><g fill="white"><circle cx="3" cy="3" r="1.3"/><circle cx="7" cy="3" r="1.3"/><circle cx="11" cy="3" r="1.3"/><circle cx="15" cy="3" r="1.3"/><circle cx="19" cy="3" r="1.3"/><circle cx="23" cy="3" r="1.3"/><circle cx="5" cy="7.5" r="1.3"/><circle cx="9" cy="7.5" r="1.3"/><circle cx="13" cy="7.5" r="1.3"/><circle cx="17" cy="7.5" r="1.3"/><circle cx="21" cy="7.5" r="1.3"/><circle cx="3" cy="12" r="1.3"/><circle cx="7" cy="12" r="1.3"/><circle cx="11" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="23" cy="12" r="1.3"/><circle cx="5" cy="16.5" r="1.3"/><circle cx="9" cy="16.5" r="1.3"/><circle cx="13" cy="16.5" r="1.3"/><circle cx="17" cy="16.5" r="1.3"/><circle cx="21" cy="16.5" r="1.3"/><circle cx="3" cy="21" r="1.3"/><circle cx="7" cy="21" r="1.3"/><circle cx="11" cy="21" r="1.3"/><circle cx="15" cy="21" r="1.3"/><circle cx="19" cy="21" r="1.3"/><circle cx="23" cy="21" r="1.3"/></g></svg>`;
-        return '';
+    const FLAG_URLS = {
+        kr: 'https://upload.wikimedia.org/wikipedia/commons/0/09/Flag_of_South_Korea.svg',
+        us: 'https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg',
     };
+
+    const getFlagImg = (id, cls = 'flag-img') =>
+        `<img src="${FLAG_URLS[id] || ''}" class="${cls}" alt="${id}"></img>`;
 
     // ── Protocol helpers ───────────────────────────────────────────────────────
     const CODE_TO_ROLE = { 'P': '돼지', 'R': '토끼', 'S': '관전' };
@@ -855,7 +857,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'server-card';
             card.innerHTML = `
-                <div class="server-flag-svg">${getFlagSVG(server.id)}</div>
+                <div class="server-flag-img">${getFlagImg(server.id)}</div>
                 <div class="server-info">
                     <div class="server-name">${server.name}</div>
                     <div class="server-ping-row">
@@ -1124,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (badge) {
             const cur = SERVERS.find(s => s.url === serverAddress);
             badge.innerHTML = cur
-                ? `<span class="badge-flag">${getFlagSVG(cur.id)}</span><span class="badge-name">${cur.name} 서버</span>`
+                ? `${getFlagImg(cur.id, 'badge-flag')} <span class="badge-name">${cur.name} 서버</span>`
                 : '';
         }
 
