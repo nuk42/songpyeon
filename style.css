@@ -805,177 +805,215 @@ img {
     color: white;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 20px;
     box-sizing: border-box;
+    padding: 12px;
+    gap: 8px;
 }
 
-.room-title {
-    font-size: 2em;
-    margin-bottom: 20px;
+.room-header {
+    font-size: 1.1em;
+    font-weight: bold;
     color: #ffc107;
+    text-align: center;
+    padding: 4px 0;
+    flex-shrink: 0;
 }
 
 #current-room-id {
     font-weight: bold;
 }
 
-.role-selection {
-    border: 1px solid #444;
-    padding: 10px;
-    margin-bottom: 20px;
-    background-color: #222;
-    border-radius: 8px;
+.room-players {
     display: flex;
-    justify-content: center;
-    gap: 10px;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.player-display-box {
+    flex: 1;
+    background-color: #2c2c2c;
+    border-radius: 8px;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.role-label {
+    font-size: 1em;
+    font-weight: bold;
+    color: #ffc107;
+}
+
+.player-nickname-display {
+    font-size: 1em;
+    font-weight: bold;
+    color: white;
+}
+
+.player-ready-status-display {
+    font-size: 0.8em;
+    color: #bbb;
+    font-style: italic;
+    min-height: 1em;
+}
+
+.spectators-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #222;
+    border-radius: 6px;
+    padding: 5px 10px;
+    flex-shrink: 0;
+    min-height: 30px;
+}
+
+.spectators-label {
+    color: #666;
+    font-size: 0.8em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+#spectator-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.spectator-item {
+    background-color: #3a3a3a;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8em;
+    color: #ccc;
+}
+
+#chat-area {
+    flex: 1;
+    background-color: #111;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+#chat-messages::-webkit-scrollbar {
+    display: none;
+}
+
+.chat-message {
+    font-size: 0.85em;
+    color: #ccc;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+.chat-nickname {
+    font-weight: bold;
+    color: #ffc107;
+    margin-right: 3px;
+}
+
+.room-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+#chat-input {
+    flex: 1;
+    background-color: #2c2c2c;
+    border: 1px solid #444;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.9em;
+    padding: 7px 10px;
+    min-width: 0;
+    box-sizing: border-box;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    touch-action: auto;
+}
+
+#chat-input::placeholder {
+    color: #555;
+}
+
+#chat-send-button {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+#chat-send-button:active {
+    filter: brightness(80%);
 }
 
 .role-btn {
     background-color: #444;
     color: white;
     border: 2px solid #555;
-    padding: 8px 16px;
+    padding: 6px 12px;
     border-radius: 20px;
     cursor: pointer;
-    font-size: 1em;
+    font-size: 0.9em;
     font-weight: bold;
+    white-space: nowrap;
+}
+
+.role-btn.not-ready {
+    background-color: #4CAF50;
+    border-color: #4CAF50;
+    color: white;
 }
 
 .role-btn.active {
-    background-color: #ffc107;
-    color: #1a1a1a;
-    border-color: #ffc107;
+    background-color: #f44336;
+    border-color: #f44336;
+    color: white;
 }
 
 .role-btn.disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-    background-color: #666;
-    border-color: #777;
-}
-
-.player-role-displays {
-    display: flex;
-    justify-content: space-around;
-    width: 100%;
-    max-width: 600px;
-    margin-bottom: 20px;
-    gap: 10px;
-}
-
-.player-display-box {
-    background-color: #2c2c2c;
-    padding: 15px;
-    border-radius: 8px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    min-height: 100px; /* Ensure consistent height */
-}
-
-.role-label {
-    font-size: 1.3em;
-    font-weight: bold;
-    color: #ffc107;
-    margin-bottom: 5px;
-}
-
-.player-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 1.1em;
-}
-
-.player-nickname-display {
-    font-weight: bold;
-    color: white;
-}
-
-.player-ready-status-display {
-    font-style: italic;
-    color: #bbb;
-    font-size: 0.9em;
-}
-
-#spectator-list-container {
-    display: flex;
-    flex-direction: column;
-    width:90%;
-    justify-content: space-between; /* Pushes the button to the bottom */
-    height: 100%; /* Ensure it takes full height to push button down */
-    border: 1px solid #444;
-    padding: 10px;
-    border-radius: 8px;
-    background-color: #222;
-    margin-top: 20px;
-}
-
-#spectator-list-container .role-btn {
-    margin-top: auto; /* Pushes the button to the bottom if container is flex column */
-}
-
-.spectator-label {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #bbb;
-    margin-bottom: 10px;
-    text-align: center;
-}
-
-#spectator-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    justify-content: center;
-    max-height: 150px; /* Limit height for scroll if many spectators */
-    overflow-y: auto;
-}
-
-.spectator-item {
-    background-color: #444;
-    padding: 5px 10px;
-    border-radius: 15px;
-    font-size: 0.9em;
-    color: #ddd;
-}
-
-#toggle-ready-button {
-    background-color: #4CAF50;
-    color: white;
-    padding: 10px 20px;
-    font-size: 1.2em;
-    font-weight: bold;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-bottom: 10px;
-}
-
-#toggle-ready-button.not-ready {
-    background-color: #f44336;
-}
-
-#toggle-ready-button:hover {
-    filter: brightness(90%);
 }
 
 #back-to-lobby-button {
-    margin-top: 10px;
-    padding: 10px 20px;
-    font-size: 1.2em;
-    background-color: #f44336;
-    color: white;
+    background-color: #252525;
+    color: #777;
     border: none;
     border-radius: 5px;
+    padding: 8px;
+    font-size: 0.85em;
     cursor: pointer;
+    flex-shrink: 0;
+    width: 100%;
 }
 
 #back-to-lobby-button:hover {
-    background-color: #d32f2f;
+    background-color: #333;
 }
 
 #audio-controls {

@@ -35,29 +35,32 @@
             <button id="back-to-main-from-lobby-button">돌아가기</button>
         </div>
         <div id="room-screen" class="hidden">
-            <h1 class="room-title">방 ID: <span id="current-room-id"></span></h1>
-            <div class="player-role-displays">
+            <div class="room-header">방 <span id="current-room-id"></span></div>
+            <div class="room-players">
                 <div id="pig-player-display" class="player-display-box">
                     <div class="role-label">돼지</div>
-                    <div class="player-info">
-                        <span class="player-nickname-display">없음</span>
-                        <span class="player-ready-status-display"></span>
-                    </div>
+                    <div class="player-nickname-display">없음</div>
+                    <div class="player-ready-status-display"></div>
                     <button class="role-btn" data-role="돼지">돼지 선택</button>
                 </div>
                 <div id="rabbit-player-display" class="player-display-box">
                     <div class="role-label">토끼</div>
-                    <div class="player-info">
-                        <span class="player-nickname-display">없음</span>
-                        <span class="player-ready-status-display"></span>
-                    </div>
+                    <div class="player-nickname-display">없음</div>
+                    <div class="player-ready-status-display"></div>
                     <button class="role-btn" data-role="토끼">토끼 선택</button>
                 </div>
             </div>
-            <div id="spectator-list-container">
-                <div class="spectator-label">관전자</div>
+            <div class="spectators-bar">
+                <span class="spectators-label">관전</span>
                 <div id="spectator-list"></div>
-                <button class="role-btn" data-role="관전">관전하기</button>
+            </div>
+            <div id="chat-area">
+                <div id="chat-messages"></div>
+            </div>
+            <div class="room-actions">
+                <button class="role-btn" data-role="관전">관전</button>
+                <input type="text" id="chat-input" maxlength="60" placeholder="채팅...">
+                <button id="chat-send-button">전송</button>
             </div>
             <button id="back-to-lobby-button">로비로 돌아가기</button>
         </div>

@@ -45,6 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const rabbitPlayerDisplay = document.getElementById('rabbit-player-display');
     const spectatorList = document.getElementById('spectator-list');
     const backToLobbyButton = document.getElementById('back-to-lobby-button');
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const chatSendButton = document.getElementById('chat-send-button');
 
     let isPracticeMode = true;
     let isMashPracticeMode = false;
@@ -138,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'GO': { const i = rest.indexOf('|'); return { type: 'gameOver', message: rest.substring(0, i), gameState: decodeGS(rest.substring(i + 1)) }; }
             case 'RF': return { type: 'roleChangeFailed', message: rest };
             case 'JF': return { type: 'joinRoomFailed', message: rest };
+            case 'CT': { const i = rest.indexOf('|'); return { type: 'chat', nickname: rest.substring(0, i), message: rest.substring(i + 1) }; }
             default: return null;
         }
     }
@@ -792,6 +796,26 @@ document.addEventListener('DOMContentLoaded', () => {
         updateKeybindDisplays();
     };
 
+    const addChatMessage = (nickname, message) => {
+        if (!chatMessages) return;
+        const msg = document.createElement('div');
+        msg.className = 'chat-message';
+        const nick = document.createElement('span');
+        nick.className = 'chat-nickname';
+        nick.textContent = nickname + ':';
+        msg.appendChild(nick);
+        msg.appendChild(document.createTextNode(' ' + message));
+        chatMessages.appendChild(msg);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    };
+
+    const sendChat = () => {
+        const msg = chatInput.value.trim();
+        if (!msg || !ws || ws.readyState !== WebSocket.OPEN || !currentRoomId) return;
+        wsSend('CT', currentRoomId, msg);
+        chatInput.value = '';
+    };
+
     // --- WebSocket & Lobby Functions ---
     const connectToServer = () => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -910,6 +934,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'roleChangeFailed':
                     showToast(data.message);
                     break;
+                case 'chat':
+                    addChatMessage(data.nickname, data.message);
+                    break;
             }
         };
 
@@ -981,116 +1008,74 @@ document.addEventListener('DOMContentLoaded', () => {
         rankingButtonContainer.classList.add('hidden');
         onlineButtonContainer.classList.add('hidden');
 
+        if (chatMessages && roomScreen.classList.contains('hidden')) {
+            chatMessages.innerHTML = '';
+        }
+
         roomScreen.classList.remove('hidden');
         updateRoomScreen(gameState);
     };
 
     const updateRoomScreen = (gameState) => {
-        console.log('updateRoomScreen called with gameState:', gameState);
         currentGameState = gameState;
-        currentRoomIdDisplay.textContent = gameState.id; // Ensure room ID is displayed
+        currentRoomIdDisplay.textContent = gameState.id;
 
-        // Update my role based on gameState
         myRole = gameState.roles[myClientId] || '관전';
-        console.log('myClientId:', myClientId, 'myRole:', myRole);
 
-        const amIReady = gameState.playerInfo[myClientId] && gameState.playerInfo[myClientId].isReady;
-        const takenRoles = Object.values(gameState.roles); // Array of roles currently taken
+        const amIReady = gameState.playerInfo[myClientId]?.isReady;
+        const takenRoles = Object.values(gameState.roles);
         const pigTaken = takenRoles.includes('돼지');
         const rabbitTaken = takenRoles.includes('토끼');
 
         roleButtons.forEach(btn => {
             const role = btn.dataset.role;
-            btn.classList.toggle('active', role === myRole);
-            btn.classList.remove('not-ready'); // Reset ready-specific styling
+            btn.classList.remove('not-ready', 'active');
 
-            // Set button text and state
             if (role === '돼지') {
-                btn.disabled = (pigTaken && myRole !== '돼지');
+                btn.disabled = pigTaken && myRole !== '돼지';
                 if (myRole === '돼지') {
                     btn.textContent = amIReady ? '준비 취소' : '준비';
                     btn.classList.toggle('not-ready', !amIReady);
+                    btn.classList.toggle('active', !!amIReady);
                 } else {
                     btn.textContent = '돼지 선택';
                 }
             } else if (role === '토끼') {
-                btn.disabled = (rabbitTaken && myRole !== '토끼');
-                 if (myRole === '토끼') {
+                btn.disabled = rabbitTaken && myRole !== '토끼';
+                if (myRole === '토끼') {
                     btn.textContent = amIReady ? '준비 취소' : '준비';
                     btn.classList.toggle('not-ready', !amIReady);
+                    btn.classList.toggle('active', !!amIReady);
                 } else {
                     btn.textContent = '토끼 선택';
                 }
             } else if (role === '관전') {
-                btn.disabled = false; // Spectator is always available
-                btn.textContent = '관전하기';
+                btn.disabled = false;
+                btn.textContent = '관전';
             }
-            
             btn.classList.toggle('disabled', btn.disabled);
         });
 
-        // Clear previous displays
         pigPlayerDisplay.querySelector('.player-nickname-display').textContent = '없음';
         pigPlayerDisplay.querySelector('.player-ready-status-display').textContent = '';
         rabbitPlayerDisplay.querySelector('.player-nickname-display').textContent = '없음';
         rabbitPlayerDisplay.querySelector('.player-ready-status-display').textContent = '';
         spectatorList.innerHTML = '';
 
-        // Populate player displays
-        let pigPlayer = null; // Will be { id, nickname, isReady }
-        let rabbitPlayer = null; // Will be { id, nickname, isReady }
-        const currentSpectators = []; // Will store { id, nickname, isReady }
-
-        for (const clientIdStr in gameState.playerInfo) {
-            const clientId = parseInt(clientIdStr, 10); // Convert clientId to number
-            const player = gameState.playerInfo[clientIdStr];
-            const role = gameState.roles[clientIdStr] || '관전';
-            console.log(`Player ${clientId}: nickname=${player.nickname}, role=${role}, isReady=${player.isReady}`);
-            if (role === '돼지') {
-                pigPlayer = { id: clientId, nickname: player.nickname, isReady: player.isReady };
-            } else if (role === '토끼') {
-                rabbitPlayer = { id: clientId, nickname: player.nickname, isReady: player.isReady };
-            } else {
-                currentSpectators.push({ id: clientId, nickname: player.nickname, isReady: false });
+        for (const [id, info] of Object.entries(gameState.playerInfo)) {
+            const role = gameState.roles[id];
+            const display = role === '돼지' ? pigPlayerDisplay : role === '토끼' ? rabbitPlayerDisplay : null;
+            if (display) {
+                display.querySelector('.player-nickname-display').textContent = info.nickname;
+                display.querySelector('.player-ready-status-display').textContent = info.isReady ? '준비' : '대기';
             }
         }
-        console.log('pigPlayer after processing:', pigPlayer);
-        console.log('rabbitPlayer after processing:', rabbitPlayer);
-        console.log('currentSpectators after processing:', currentSpectators);
 
-        // Add spectators from gameState.spectators (those not in playerInfo with a role)
-        (gameState.spectators || []).forEach(spectatorObj => {
-            // Only add if not already listed as a player with a role
-            const isAlreadyListed = 
-                                    currentSpectators.some(p => p.id === spectatorObj.id) || 
-                                    (pigPlayer && pigPlayer.id === spectatorObj.id) || 
-                                    (rabbitPlayer && rabbitPlayer.id === spectatorObj.id);
-            if (!isAlreadyListed) {
-                currentSpectators.push({ id: spectatorObj.id, nickname: spectatorObj.nickname, isReady: false });
-            }
-        });
-
-
-        if (pigPlayer) {
-            pigPlayerDisplay.querySelector('.player-nickname-display').textContent = pigPlayer.nickname;
-            pigPlayerDisplay.querySelector('.player-ready-status-display').textContent = pigPlayer.isReady ? ' (준비)' : ' (대기)';
-            pigPlayerDisplay.querySelector('.player-ready-status-display').classList.toggle('not-ready', !pigPlayer.isReady);
-            console.log('Pig player nickname set to:', pigPlayer.nickname);
-        }
-
-        if (rabbitPlayer) {
-            rabbitPlayerDisplay.querySelector('.player-nickname-display').textContent = rabbitPlayer.nickname;
-            rabbitPlayerDisplay.querySelector('.player-ready-status-display').textContent = rabbitPlayer.isReady ? ' (준비)' : ' (대기)';
-            rabbitPlayerDisplay.querySelector('.player-ready-status-display').classList.toggle('not-ready', !rabbitPlayer.isReady);
-            console.log('Rabbit player nickname set to:', rabbitPlayer.nickname);
-        }
-
-        currentSpectators.forEach(spectator => {
-            const li = document.createElement('li');
-            li.className = 'spectator-item';
-            li.textContent = spectator.nickname;
-            spectatorList.appendChild(li);
-            console.log('Spectator added:', spectator.nickname);
+        (gameState.spectators || []).forEach(s => {
+            const item = document.createElement('div');
+            item.className = 'spectator-item';
+            item.textContent = s.nickname;
+            spectatorList.appendChild(item);
         });
     };
 
@@ -2062,6 +2047,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+
+    chatSendButton.addEventListener('click', sendChat);
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.stopPropagation();
+            sendChat();
+        }
+    });
 
     backToLobbyButton.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
