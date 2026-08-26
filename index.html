@@ -29,10 +29,20 @@
         </main>
         <div id="game-screen" class="hidden"></div>
         <div id="lobby-screen" class="hidden">
-            <h1 class="lobby-title">온라인 로비</h1>
+            <div class="lobby-top">
+                <h1 class="lobby-title">온라인 로비</h1>
+                <button id="server-select-btn">🌐 서버</button>
+            </div>
             <button id="create-room-button">방 만들기</button>
             <div id="room-list"></div>
             <button id="back-to-main-from-lobby-button">돌아가기</button>
+        </div>
+        <div id="server-modal" class="hidden">
+            <div class="server-modal-box">
+                <div class="server-modal-title">서버 선택</div>
+                <div id="server-list"></div>
+                <button id="server-modal-close">닫기</button>
+            </div>
         </div>
         <div id="room-screen" class="hidden">
             <div class="room-header">방 <span id="current-room-id"></span></div>

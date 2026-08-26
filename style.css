@@ -724,10 +724,191 @@ img {
     box-sizing: border-box;
 }
 
+.lobby-top {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 20px;
+}
+
 .lobby-title {
     font-size: 2.5em;
-    margin-bottom: 20px;
+    margin: 0;
     color: #4CAF50;
+}
+
+#server-select-btn {
+    position: absolute;
+    right: 0;
+    background: #2a2a2a;
+    color: #bbb;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+#server-select-btn:hover {
+    background: #333;
+    color: white;
+}
+
+/* --- Server Selection Modal --- */
+#server-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+}
+
+#server-modal.hidden {
+    display: none;
+}
+
+.server-modal-box {
+    background: #1e1e1e;
+    border-radius: 14px;
+    padding: 20px 16px;
+    width: 88%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.server-modal-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: white;
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #333;
+}
+
+.server-card {
+    background: #2c2c2c;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, opacity 0.2s;
+}
+
+.server-card.selected {
+    border-color: #ffc107;
+}
+
+.server-card.unreachable {
+    opacity: 0.45;
+}
+
+.server-flag {
+    font-size: 2em;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.server-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.server-name {
+    font-size: 0.95em;
+    font-weight: bold;
+    color: white;
+}
+
+.server-ping-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.signal-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.signal-bars .bar {
+    width: 5px;
+    border-radius: 1px 1px 0 0;
+    background: #444;
+    transition: background 0.3s;
+}
+
+.signal-bars .b1 { height: 4px; }
+.signal-bars .b2 { height: 8px; }
+.signal-bars .b3 { height: 12px; }
+.signal-bars .b4 { height: 16px; }
+
+.signal-bars .bar.active { background: #4CAF50; }
+.signal-bars.fair .bar.active { background: #FFC107; }
+.signal-bars.poor .bar.active { background: #FF5722; }
+
+.ping-text {
+    font-size: 0.78em;
+    color: #888;
+    transition: opacity 0.2s;
+}
+
+.ping-text.ok   { color: #4CAF50; }
+.ping-text.mid  { color: #FFC107; }
+.ping-text.bad  { color: #FF5722; }
+.ping-text.dead { color: #f44336; }
+
+.server-btn {
+    background: #444;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.85em;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+.server-btn.current {
+    background: #ffc107;
+    color: #1a1a1a;
+    font-weight: bold;
+    cursor: default;
+}
+
+.server-btn:not(.current):hover {
+    background: #555;
+}
+
+#server-modal-close {
+    background: #2a2a2a;
+    color: #888;
+    border: none;
+    border-radius: 8px;
+    padding: 9px;
+    font-size: 0.9em;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 2px;
+}
+
+#server-modal-close:hover {
+    background: #333;
+    color: #bbb;
 }
 
 #create-room-button {

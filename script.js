@@ -103,6 +103,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let lifeLostInReplayRound = false;
     let serverAddress = '';
 
+    const SERVERS = [
+        { name: '한국', flag: '🇰🇷', url: 'wss://port-0-songpyeon-mt9wj7y76fb82d10.sel3.cloudtype.app/' },
+        { name: '미국', flag: '🇺🇸', url: 'wss://songpyeon.duckdns.org/ws' },
+    ];
+
     // ── Protocol helpers ───────────────────────────────────────────────────────
     const CODE_TO_ROLE = { 'P': '돼지', 'R': '토끼', 'S': '관전' };
     const ROLE_TO_CODE = { '돼지': 'P', '토끼': 'R', '관전': 'S' };
@@ -795,6 +800,100 @@ document.addEventListener('DOMContentLoaded', () => {
         setupButtonListeners(gameScreen.querySelector('.exit-button'));
         floorContainer.querySelectorAll('.keybind-overlay:not(.hidden)').forEach(overlay => overlay.addEventListener('click', startKeyBinding));
         updateKeybindDisplays();
+    };
+
+    const measurePing = (url) => new Promise(resolve => {
+        let done = false;
+        const start = Date.now();
+        const timer = setTimeout(() => {
+            if (!done) { done = true; try { sock.close(); } catch(e) {} resolve(null); }
+        }, 5000);
+        let sock;
+        try {
+            sock = new WebSocket(url);
+            sock.onopen = () => {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                const ms = Date.now() - start;
+                sock.close();
+                resolve(ms);
+            };
+            sock.onerror = () => {
+                if (done) return;
+                done = true;
+                clearTimeout(timer);
+                resolve(null);
+            };
+        } catch(e) { clearTimeout(timer); resolve(null); }
+    });
+
+    const openServerModal = () => {
+        const modal = document.getElementById('server-modal');
+        const listEl = document.getElementById('server-list');
+        listEl.innerHTML = '';
+        modal.classList.remove('hidden');
+
+        SERVERS.forEach(server => {
+            const card = document.createElement('div');
+            card.className = 'server-card' + (serverAddress === server.url ? ' selected' : '');
+            card.innerHTML = `
+                <span class="server-flag">${server.flag}</span>
+                <div class="server-info">
+                    <div class="server-name">${server.name}</div>
+                    <div class="server-ping-row">
+                        <div class="signal-bars offline">
+                            <div class="bar b1"></div>
+                            <div class="bar b2"></div>
+                            <div class="bar b3"></div>
+                            <div class="bar b4"></div>
+                        </div>
+                        <span class="ping-text">측정 중...</span>
+                    </div>
+                </div>
+                <button class="server-btn${serverAddress === server.url ? ' current' : ''}">${serverAddress === server.url ? '현재 서버' : '선택'}</button>
+            `;
+            listEl.appendChild(card);
+
+            const barsEl = card.querySelector('.signal-bars');
+            const pingEl = card.querySelector('.ping-text');
+            const btn = card.querySelector('.server-btn');
+
+            if (!btn.classList.contains('current')) {
+                btn.addEventListener('click', () => {
+                    serverAddress = server.url;
+                    localStorage.setItem('serverAddress', server.url);
+                    showToast(`${server.flag} ${server.name} 서버 선택됨`);
+                    modal.classList.add('hidden');
+                });
+            }
+
+            // 핑 측정 후 UI 업데이트
+            measurePing(server.url).then(ms => {
+                let level, cls, textCls;
+                if (ms === null) {
+                    level = 0; cls = 'offline'; textCls = 'dead';
+                    pingEl.textContent = '접속 불가';
+                    card.classList.add('unreachable');
+                    btn.disabled = true;
+                } else if (ms < 80) {
+                    level = 4; cls = 'excellent'; textCls = 'ok';
+                    pingEl.textContent = `${ms}ms`;
+                } else if (ms < 150) {
+                    level = 3; cls = 'good'; textCls = 'ok';
+                    pingEl.textContent = `${ms}ms`;
+                } else if (ms < 300) {
+                    level = 2; cls = 'fair'; textCls = 'mid';
+                    pingEl.textContent = `${ms}ms`;
+                } else {
+                    level = 1; cls = 'poor'; textCls = 'bad';
+                    pingEl.textContent = `${ms}ms`;
+                }
+                barsEl.className = `signal-bars ${cls}`;
+                barsEl.querySelectorAll('.bar').forEach((b, i) => b.classList.toggle('active', i < level));
+                pingEl.className = `ping-text ${textCls}`;
+            });
+        });
     };
 
     const addChatMessage = (type, nickname, message) => {
@@ -2064,6 +2163,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
+    document.getElementById('server-select-btn').addEventListener('click', openServerModal);
+    document.getElementById('server-modal-close').addEventListener('click', () => {
+        document.getElementById('server-modal').classList.add('hidden');
+    });
+
     chatSendButton.addEventListener('click', sendChat);
     chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -2169,12 +2273,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const config = await response.json();
                 serverAddress = config.serverAddress;
-                console.log(`Server address set to: ${serverAddress}`);
-            } else {
-                console.warn('config.json not found, using default server address.');
             }
-        } catch (error) {
-            console.warn('Error loading config.json, using default server address.', error);
+        } catch (error) {}
+        // 저장된 서버 선택 우선 적용
+        const savedServer = localStorage.getItem('serverAddress');
+        if (savedServer && SERVERS.some(s => s.url === savedServer)) {
+            serverAddress = savedServer;
         }
 
         loadKeybinds();
