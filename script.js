@@ -97,7 +97,54 @@ document.addEventListener('DOMContentLoaded', () => {
     let playerLives = 5;
     let lifeLostInPreviousRound = false;
     let lifeLostInReplayRound = false;
-    let serverAddress = ''; // Default server address
+    let serverAddress = '';
+
+    // ── Protocol helpers ───────────────────────────────────────────────────────
+    const CODE_TO_ROLE = { 'P': '돼지', 'R': '토끼', 'S': '관전' };
+    const ROLE_TO_CODE = { '돼지': 'P', '토끼': 'R', '관전': 'S' };
+
+    function decodeGS(s) {
+        const c = JSON.parse(s);
+        return {
+            id: c.id,
+            currentRound: c.r,
+            sharedLives: c.l,
+            roles: Object.fromEntries(Object.entries(c.ro || {}).map(([k, v]) => [k, CODE_TO_ROLE[v] || v])),
+            playerInfo: Object.fromEntries(Object.entries(c.pi || {}).map(([k, v]) => [k, { nickname: v.n, isReady: !!v.y }])),
+            spectators: (c.sp || []).map(e => ({ id: e.i, nickname: e.n }))
+        };
+    }
+
+    function decodeServerMsg(raw) {
+        const sep = raw.indexOf('|');
+        const type = sep === -1 ? raw : raw.substring(0, sep);
+        const rest = sep === -1 ? '' : raw.substring(sep + 1);
+        switch (type) {
+            case 'RL': return { type: 'roomsList', rooms: JSON.parse(rest).map(r => ({ id: r.i, players: r.p })) };
+            case 'CO': return { type: 'connected', clientId: parseInt(rest, 10) };
+            case 'RC': { const i = rest.indexOf('|'); return { type: 'roomCreated', roomId: rest.substring(0, i), gameState: decodeGS(rest.substring(i + 1)) }; }
+            case 'RJ': { const i = rest.indexOf('|'); return { type: 'roomJoined', roomId: rest.substring(0, i), gameState: decodeGS(rest.substring(i + 1)) }; }
+            case 'RU': return { type: 'roomStateUpdate', gameState: decodeGS(rest) };
+            case 'GC': return { type: 'gameCountdown', count: parseInt(rest, 10) };
+            case 'GX': return { type: 'gameStartCancelled' };
+            case 'RS': {
+                const p = rest.split('|');
+                return { type: 'roundStart', round: parseInt(p[0], 10), tteokKey: p[1], currentTurnPlayerId: parseInt(p[2], 10), gameState: { sharedLives: parseInt(p[3], 10) }, pattern: p[4].split('').map(Number) };
+            }
+            case 'IC': { const p = rest.split('|'); return { type: 'inputCorrect', commandId: parseInt(p[0], 10), playerId: parseInt(p[1], 10) }; }
+            case 'TC': return { type: 'turnChange', currentTurnPlayerId: parseInt(rest, 10) };
+            case 'RE': { const p = rest.split('|'); return { type: 'roundEnd', isSuccess: p[0] === '1', failedRole: CODE_TO_ROLE[p[1]] || null, gameState: { sharedLives: parseInt(p[2], 10) } }; }
+            case 'GO': { const i = rest.indexOf('|'); return { type: 'gameOver', message: rest.substring(0, i), gameState: decodeGS(rest.substring(i + 1)) }; }
+            case 'RF': return { type: 'roleChangeFailed', message: rest };
+            case 'JF': return { type: 'joinRoomFailed', message: rest };
+            default: return null;
+        }
+    }
+
+    function wsSend(...parts) {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(parts.join('|'));
+    }
+    // ──────────────────────────────────────────────────────────────────────────
 
     // --- SFX State ---
     let sfxAudioMap = {};
@@ -110,11 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const preloadImages = (urls) => {
         return Promise.all(urls.map(url => {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const img = new Image();
                 img.src = url;
                 img.onload = resolve;
-                img.onerror = reject;
+                img.onerror = resolve; // 하나 실패해도 나머지 계속 캐싱
             });
         }));
     };
@@ -595,9 +642,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- START: Online Mode Logic ---
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // In online mode, send input to server and let server handle validation and state updates
-            ws.send(JSON.stringify({ type: 'playerInput', roomId: currentRoomId, commandId: commandId }));
-            return; // Exit, server will send updates
+            // 클라이언트에서 먼저 맞는지 확인 후 즉시 UI 반영 (낙관적 업데이트)
+            if (!gameFailed && currentGameIndex < gamePattern.length) {
+                const expectedCommand = gamePattern[currentGameIndex];
+                const isPigCmd = [1, 2, 3, 6].includes(expectedCommand);
+                const isMyTurn = (currentRole === '돼지' && isPigCmd) || (currentRole === '토끼' && !isPigCmd);
+                if (isMyTurn && commandId === expectedCommand) {
+                    handleCorrectInput(true, commandId);
+                    updateGlowIndicator();
+                }
+            }
+            wsSend('PI', currentRoomId, commandId);
+            return;
         }
         // --- END: Online Mode Logic ---
 
@@ -749,11 +805,12 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Connected to WebSocket server');
             showToast('서버 연결 성공!');
             showLobbyScreen();
-            ws.send(JSON.stringify({ type: 'getRooms' }));
+            ws.send('GR');
         };
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            const data = decodeServerMsg(event.data);
+            if (!data) return;
             console.log('Received from server:', data);
             switch (data.type) {
                 case 'roomsList':
@@ -794,9 +851,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     showGameScreen(myRole, false, null, data.pattern, data.tteokKey);
                     break;
                 case 'inputCorrect':
-                    // Server confirmed a correct input
-                    handleCorrectInput(true, data.commandId); // Treat as player input for UI update
-                    updateGlowIndicator(); // Update glow for next expected command
+                    // 내 입력은 이미 낙관적으로 처리됨, 상대방 입력만 반영
+                    if (data.playerId !== myClientId) {
+                        handleCorrectInput(true, data.commandId);
+                        updateGlowIndicator();
+                    }
                     break;
                 case 'turnChange':
                     // Server indicates whose turn it is next (or if bot should act)
@@ -878,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Handle joining room
                 showToast(`방 ${room.id}에 입장 시도...`);
                 if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'joinRoom', roomId: room.id, nickname: nicknameInput.value }));
+                    wsSend('JR', room.id, nicknameInput.value);
                 }
             });
             roomList.appendChild(roomItem);
@@ -896,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         lobbyScreen.classList.remove('hidden');
         if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'getRooms' })); // Refresh room list
+            ws.send('GR');
         }
     };
 
@@ -1528,13 +1587,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         
-                        const commandIcons = gameScreen.querySelectorAll('.command-icon');
+                        const allGameImgs = gameScreen.querySelectorAll('.command-icon, .recipe-container img');
         const imageLoadPromises = [];
-        commandIcons.forEach(icon => {
+        allGameImgs.forEach(icon => {
             if (!icon.complete) {
                 imageLoadPromises.push(new Promise(resolve => {
                     icon.onload = resolve;
-                    icon.onerror = resolve; // Resolve on error too so one broken image doesn't stop the game
+                    icon.onerror = resolve;
                 }));
             }
         });
@@ -1989,7 +2048,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'createRoom', nickname: nicknameInput.value }));
+            wsSend('CR', nicknameInput.value);
         } else {
             showToast('서버에 연결되어 있지 않습니다.');
         }
@@ -2007,10 +2066,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // If the player clicks the button for the role they already have, treat it as a ready toggle.
             if (myRole === role && (myRole === '돼지' || myRole === '토끼')) {
-                 ws.send(JSON.stringify({ type: 'toggleReady', roomId: currentRoomId }));
+                wsSend('TR', currentRoomId);
             } else {
-                // Otherwise, treat it as a role selection attempt.
-                 ws.send(JSON.stringify({ type: 'selectRole', roomId: currentRoomId, role: role, nickname: nicknameInput.value }));
+                wsSend('SR', currentRoomId, ROLE_TO_CODE[role] || role, nicknameInput.value);
             }
         });
     });
@@ -2018,8 +2076,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     backToLobbyButton.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            ws.send(JSON.stringify({ type: 'leaveRoom', roomId: currentRoomId }));
-            currentRoomId = null; // Clear current room ID
+            wsSend('LR', currentRoomId);
+            currentRoomId = null;
             myRole = '관전'; // Reset my role
             showLobbyScreen();
         } else {
