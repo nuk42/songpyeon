@@ -250,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const playSfx = (commandId) => {
         if (sfxSlider.value == 0 || !audioContext) return;
+        if (audioContext.state === 'suspended') audioContext.resume();
 
         let audioBuffer;
         if (commandId === 8) {
@@ -396,14 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         missAnimationInterval = setInterval(() => {
-            if (frame >= missFrames.length) {
-                clearInterval(missAnimationInterval);
-                return;
-            }
             for (let i = currentGameIndex; i < gamePattern.length; i++) {
                 if(overlays[i]) overlays[i].src = missFrames[frame];
             }
             frame++;
+            if (frame >= missFrames.length) frame = 7;
         }, 60);
     };
 
@@ -1043,7 +1041,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         playSfx('fail'); 
                         showToast('실패');
-                        if (data.failedRole) { 
+                        if (data.failedRole) {
                             showMissAnimation(data.failedRole);
                         }
                     }
@@ -1425,7 +1423,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showGameScreen = async (role, isReplay = false, replayTteokKey = null, serverPattern = null, serverTteokKey = null) => {
-        if (bgmBuffer && !bgmSourceNode && audioContext.state !== 'suspended') {
+        if (audioContext.state === 'suspended') audioContext.resume();
+        if (bgmBuffer && !bgmSourceNode) {
             bgmSourceNode = audioContext.createBufferSource();
             bgmSourceNode.buffer = bgmBuffer;
             bgmSourceNode.loop = true;
@@ -1620,7 +1619,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedFloor = gameScreen.querySelector('.floor-container');
         if (savedFloor) savedFloor.remove();
 
-        gameScreen.style.visibility = 'hidden';
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -1751,8 +1749,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
-
-        gameScreen.style.visibility = '';
 
         positionGlowReliably();
 
