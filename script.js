@@ -1,7 +1,7 @@
 import gameRecorder from './gameRecorder.js';
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- Constants & State ---
+    
     const practiceToggle = document.getElementById('practice-toggle');
     const fullscreenToggle = document.getElementById('fullscreen-toggle');
     const practiceSettings = document.getElementById('practice-settings');
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const createRoomButton = document.getElementById('create-room-button');
     const backToMainFromLobbyButton = document.getElementById('back-to-main-from-lobby-button');
 
-    // Web Audio API state for BGM
+    
     let audioContext;
     let bgmBuffer = null;
     let bgmSourceNode = null;
@@ -56,17 +56,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let mashSuccessTimer = null;
     let lastValidLines, lastValidTime;
     let gamePattern = [];
-    let currentRound = 0; // Added currentRound variable
-    let currentRoomId = null; // New: Store current room ID
-    let myClientId = null; // New: Store my client ID
-    let pendingOptimisticCount = 0; // 낙관적 업데이트 후 서버 확인 대기 중인 입력 수
-    let myRole = '관전'; // New: Store my current role, default spectator
+    let currentRound = 0; 
+    let currentRoomId = null; 
+    let myClientId = null; 
+    let pendingOptimisticCount = 0; 
+    let myRole = '관전'; 
 
-    let gameStartCountdownInterval = null; // Declare at higher scope
+    let gameStartCountdownInterval = null; 
 
     let patternManifest = {};
     let difficultyConfig = {};
-    let roundConfig = {}; // Added roundConfig
+    let roundConfig = {}; 
 
     let currentGameIndex = 0;
     let gameFailed = false;
@@ -86,10 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const pigMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_pig${i}.png`);
     const rabbitMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_rabbit${i}.png`);
 
-    // WebSocket connection
+    
     let ws = null;
 
-    // --- Keybinding State ---
+    
     let isBindingKey = false;
     let commandToBind = null;
     let keybinds = {};
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const getFlagImg = (id, cls = 'flag-img') =>
         `<img src="${FLAG_URLS[id] || ''}" class="${cls}" alt="${id}"></img>`;
 
-    // ── Protocol helpers ───────────────────────────────────────────────────────
+    
     const CODE_TO_ROLE = { 'P': '돼지', 'R': '토끼', 'S': '관전' };
     const ROLE_TO_CODE = { '돼지': 'P', '토끼': 'R', '관전': 'S' };
 
@@ -164,16 +164,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function wsSend(...parts) {
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(parts.join('|'));
     }
-    // ──────────────────────────────────────────────────────────────────────────
+    
 
-    // --- SFX State ---
+    
     let sfxAudioMap = {};
     let lastDoughHitTime = 0;
     let doughSequenceCounter = 0;
 
-    // =================================================================
-    // SECTION 1: CORE HELPER FUNCTIONS
-    // =================================================================
+    
+    
+    
 
     const preloadImages = (urls) => {
         return Promise.all(urls.map(url => {
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const img = new Image();
                 img.src = url;
                 img.onload = resolve;
-                img.onerror = resolve; // 하나 실패해도 나머지 계속 캐싱
+                img.onerror = resolve; 
             });
         }));
     };
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rabbitNormalIcons: [4, 5, 7],
         rabbitSpecialIcon: 8,
         generatePigPair(p) { p.push(this.pigNormalIcons[Math.floor(Math.random() * this.pigNormalIcons.length)]); p.push(this.pigSpecialIcon); },
-        // This is now only used for mixed mode.
+        
         generateRabbitPair(p) { if (Math.random() < 0.5) { p.push(this.rabbitSpecialIcon); p.push(this.rabbitSpecialIcon); } else { p.push(this.rabbitNormalIcons[Math.floor(Math.random() * this.rabbitNormalIcons.length)]); p.push(this.rabbitNormalIcons[Math.floor(Math.random() * this.rabbitNormalIcons.length)]); } },
         generateFullPattern(totalCount, role = null) {
             const p = [];
@@ -290,29 +290,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const gr = rm[role] || null;
 
             if (gr === 'Rabbit') {
-                // --- New Rabbit Logic (from Game.kt) ---
+                
                 const lines = totalCount / 6;
                 for (let i = 0; i < lines; i++) {
                     let specialIconCount = 0;
                     for (let j = 0; j < 6; j++) {
                         const isLastInLine = (j === 5);
-                        if (specialIconCount % 2 === 0) { // Even count
+                        if (specialIconCount % 2 === 0) { 
                             if (!isLastInLine && Math.random() < 0.5) {
                                 p.push(this.rabbitSpecialIcon);
                                 specialIconCount++;
                             } else {
                                 p.push(this.rabbitNormalIcons[Math.floor(Math.random() * this.rabbitNormalIcons.length)]);
                             }
-                        } else { // Odd count
+                        } else { 
                             p.push(this.rabbitSpecialIcon);
                             specialIconCount++;
                         }
                     }
                 }
             } else {
-                // --- Original Logic for Pig and Mixed ---
+                
                 const pairs = totalCount / 2;
-                if (gr === null) { // Mixed mode
+                if (gr === null) { 
                     for (let i = 0; i < pairs; i++) {
                         if (Math.random() < 0.5) {
                             this.generatePigPair(p);
@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             this.generateRabbitPair(p);
                         }
                     }
-                } else if (gr === 'Pig') { // Pig mode
+                } else if (gr === 'Pig') { 
                     for (let i = 0; i < pairs; i++) {
                         this.generatePigPair(p);
                     }
@@ -335,9 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // =================================================================
-    // SECTION 2: KEYBINDING FUNCTIONS
-    // =================================================================
+    
+    
+    
 
     const loadKeybinds = () => {
         commandBinds = JSON.parse(localStorage.getItem('keyBinds') || '{}');
@@ -382,9 +382,9 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.classList.add('waiting');
     };
 
-    // =================================================================
-    // SECTION 3: GAME LOGIC & UI RENDERING
-    // =================================================================
+    
+    
+    
 
     const showMissAnimation = (roleThatFailed) => {
         const missFrames = (roleThatFailed === '돼지') ? pigMissFrames : rabbitMissFrames;
@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameRecorder.stop();
                 alert(`게임 결과: ${currentRound} 라운드\n(닉네임이 없어 기록이 저장되지 않았습니다.)`);
                 showMainScreen();
-                return; // Exit without saving
+                return; 
             }
 
             const gameData = gameRecorder.getRecording();
@@ -508,11 +508,11 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(data => {
                 console.log('Game data saved successfully:', data);
-                // showToast('게임 기록이 저장되었습니다.');
+                
             })
             .catch(error => {
                 console.error('Error saving game data:', error.message);
-                // showToast(`게임 기록 저장 실패: ${error.message}`);
+                
             });
 
             gameRecorder.stop();
@@ -524,15 +524,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startNewRound = () => {
         if (roundTimer) clearTimeout(roundTimer);
-        // Add life deduction logic here
+        
         if (!isPracticeMode && !isMashPracticeMode && lifeLostInPreviousRound) {
             playerLives--;
             updateHeartDisplay();
             if (playerLives <= 0) {
                 onGameOver();
-                return; // Stop if game over
+                return; 
             }
-            lifeLostInPreviousRound = false; // Reset flag
+            lifeLostInPreviousRound = false; 
         }
         showGameScreen(currentRole);
     };
@@ -547,16 +547,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (botActionTimeout) clearTimeout(botActionTimeout);
         gameFailed = true;
 
-        // --- START: Online Mode Logic Bypass ---
+        
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // In online mode, the server handles round transitions and life deduction.
-            // Client just updates UI based on server's 'roundEnd' message.
+            
+            
             return;
         }
-        // --- END: Online Mode Logic Bypass ---
+        
 
-        // Calculate the target time for the next round to start
-        const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) * 1000 : 4000; // Get the actual time limit for the round
+        
+        const timeLimit = isPracticeMode ? parseInt(timeInput.value, 10) * 1000 : 4000; 
         const targetNextRoundStartTime = roundStartTime + timeLimit;
         const delayUntilNextRound = Math.max(0, targetNextRoundStartTime - performance.now());
 
@@ -570,18 +570,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (scrollContent) scrollContent.style.display = 'none';
                     if (!isPracticeMode && !isMashPracticeMode) {                nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
             } else {
-                // In practice mode, just restart the round after a short delay
-                nextRoundTimeoutId = setTimeout(startNewRound, 1000); // Restart round after a short delay
+                
+                nextRoundTimeoutId = setTimeout(startNewRound, 1000); 
             }
-        } else { // Round failed (e.g., timeout)
+        } else { 
             playSfx('fail');
             showToast('실패');
             if (!isPracticeMode && !isMashPracticeMode) {
                 lifeLostInPreviousRound = true;
                 nextRoundTimeoutId = setTimeout(startNewRound, delayUntilNextRound);
             } else {
-                // In practice mode, just restart the round after a short delay
-                nextRoundTimeoutId = setTimeout(startNewRound, 1000); // Restart round after a short delay
+                
+                nextRoundTimeoutId = setTimeout(startNewRound, 1000); 
             }
         }
     };
@@ -617,22 +617,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const processNextCommand = () => {
         if (gameFailed || isReplaying) return;
 
-        // --- START: Online Mode Logic ---
+        
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // In online mode, the server dictates turns and bot actions.
-            // Client-side bot logic should be bypassed.
+            
+            
             return;
         }
-        // --- END: Online Mode Logic ---
+        
 
         if (currentGameIndex >= gamePattern.length) {
             if (isMashPracticeMode) {
-                // Pattern complete, start 200ms timer to check for extra inputs.
+                
                 mashSuccessTimer = setTimeout(() => {
-                    onRoundEnd(true); // Success if timer completes.
+                    onRoundEnd(true); 
                 }, 200);
             } else {
-                onRoundEnd(true); // Normal success for other modes.
+                onRoundEnd(true); 
             }
             return;
         }
@@ -660,9 +660,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const handlePlayerInput = (commandId) => {
         if (gameFailed || isReplaying) return;
 
-        // --- START: Online Mode Logic ---
+        
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
-            // 클라이언트에서 먼저 맞는지 확인 후 즉시 UI 반영 (낙관적 업데이트)
+            
             if (!gameFailed && currentGameIndex < gamePattern.length) {
                 const expectedCommand = gamePattern[currentGameIndex];
                 const isPigCmd = [1, 2, 3, 6].includes(expectedCommand);
@@ -676,12 +676,12 @@ document.addEventListener('DOMContentLoaded', () => {
             wsSend('PI', currentRoomId, commandId);
             return;
         }
-        // --- END: Online Mode Logic ---
+        
 
-        // Start timer on first press in mash mode
+        
         if (isMashPracticeMode && currentGameIndex === 0) {
-            if (commandId === gamePattern[0]) { // Only start on correct press
-                const timeLimitInSeconds = gamePattern.length * 0.1; // 100ms per command
+            if (commandId === gamePattern[0]) { 
+                const timeLimitInSeconds = gamePattern.length * 0.1; 
                 roundStartTime = performance.now();
 
                 if(roundTimer) clearTimeout(roundTimer);
@@ -694,7 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gauge) {
                     gauge.style.transition = 'none';
                     gauge.style.width = '100%';
-                    gauge.offsetHeight; // Force reflow
+                    gauge.offsetHeight; 
                     gauge.style.transition = `width ${timeLimitInSeconds}s linear`;
                     gauge.style.width = '0%';
                 }
@@ -703,12 +703,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         if (isMashPracticeMode && currentGameIndex >= gamePattern.length) {
-            // Player has finished the pattern and is pressing extra keys.
+            
             if (mashSuccessTimer) {
                 clearTimeout(mashSuccessTimer);
                 mashSuccessTimer = null;
             }
-            onRoundEnd(false); // This is a failure.
+            onRoundEnd(false); 
             return;
         }
 
@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (commandId !== expectedCommand) {
             if (gameRecorder.isRecording()) {
-                gameRecorder.add('X', commandId, 'p'); // Record the incorrect input
+                gameRecorder.add('X', commandId, 'p'); 
             }
             showMissAnimation(currentRole);
             if (!isPracticeMode) {
@@ -749,7 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollContent.style.transition = 'none';
 
         const startY = parseFloat(scrollContent.style.transform.replace('translateY(', '')) || 0;
-        const duration = 300; // ms
+        const duration = 300; 
         let startTime = null;
 
         const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
@@ -768,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (progress < duration) {
                 requestAnimationFrame(animationStep);
             } else {
-                scrollContent.style.transition = ''; // Re-enable for next time
+                scrollContent.style.transition = ''; 
             }
         }
 
@@ -803,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      ${!btn.item ? `data-command-for-bind="command${btn.cmd}"` : ''}></div>
             </div>`).join('');
 
+        floorContainer.dataset.role = role;
         floorContainer.innerHTML = `<img src="res/thanksgiving_room_container_top.png" class="floor-top"><div class="button-layout-container"><div class="button-cluster">${buttonHTML}</div></div>`;
 
         floorContainer.querySelectorAll('.game-command').forEach(setupButtonListeners);
@@ -943,7 +944,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.value = '';
     };
 
-    // --- WebSocket & Lobby Functions ---
+    
     const connectToServer = () => {
         if (ws && ws.readyState === WebSocket.OPEN) {
             showToast('이미 서버에 연결되어 있습니다.');
@@ -952,7 +953,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showToast('서버 연결 중...');
-        ws = new WebSocket(serverAddress); // Use address from config
+        ws = new WebSocket(serverAddress); 
 
         ws.onopen = () => {
             console.log('Connected to WebSocket server');
@@ -970,7 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderRoomList(data.rooms);
                     break;
                 case 'connected':
-                    myClientId = data.clientId; // Store my client ID
+                    myClientId = data.clientId; 
                     console.log('Client ID:', myClientId);
                     break;
                 case 'roomCreated':
@@ -995,20 +996,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast('시작이 취소되었습니다.');
                     break;
                 case 'roundStart':
-                    clearInterval(gameStartCountdownInterval); // Ensure countdown interval is cleared
+                    clearInterval(gameStartCountdownInterval); 
                     roomScreen.classList.add('hidden');
                     gameScreen.classList.remove('hidden');
                     currentRound = data.round;
-                    playerLives = data.gameState.sharedLives; // Update shared lives
-                    gameFailed = false; // Reset gameFailed flag for new round
+                    playerLives = data.gameState.sharedLives; 
+                    gameFailed = false; 
                     showGameScreen(myRole, false, null, data.pattern, data.tteokKey);
                     break;
                 case 'inputCorrect':
                     if (data.playerId === myClientId) {
                         if (pendingOptimisticCount > 0) {
-                            pendingOptimisticCount--; // 낙관적 업데이트로 이미 처리됨
+                            pendingOptimisticCount--; 
                         } else {
-                            // 핑 차이로 클라이언트가 틀렸다고 판단했지만 서버 기준 맞음 → 지금 반영
+                            
                             handleCorrectInput(true, data.commandId);
                             updateGlowIndicator();
                         }
@@ -1018,8 +1019,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     break;
                 case 'turnChange':
-                    // Server indicates whose turn it is next (or if bot should act)
-                    // This is primarily for server-side logic, client just updates glow based on inputCorrect
+                    
+                    
                     break;
                 case 'roundEnd':
                     if (roundTimer) clearTimeout(roundTimer);
@@ -1031,22 +1032,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateHeartDisplay();
 
                     if (data.isSuccess) {
-                        if (glowAnimationInterval) clearInterval(glowAnimationInterval); // Clear glow
+                        if (glowAnimationInterval) clearInterval(glowAnimationInterval); 
                         const glowElement = gameScreen.querySelector('.glow-indicator');
                         if (glowElement) glowElement.classList.add('hidden');
 
-                        playSfx('success'); // 성공 효과음 추가
+                        playSfx('success'); 
                         showToast('성공');
                         const scrollContent = gameScreen.querySelector('.scroll-content');
                         if (scrollContent) scrollContent.style.display = 'none';
                     } else {
-                        playSfx('fail'); // 실패 효과음 추가
+                        playSfx('fail'); 
                         showToast('실패');
-                        if (data.failedRole) { // Only show animation if a player made a direct mistake
+                        if (data.failedRole) { 
                             showMissAnimation(data.failedRole);
                         }
                     }
-                    // Server will send a new 'roundStart' message after a delay
+                    
                     break;
                 case 'gameOver':
                     clearInterval(gameStartCountdownInterval);
@@ -1073,13 +1074,13 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('WebSocket error:', error);
             showToast('서버 연결 실패!');
             if (ws) ws.close();
-            showMainScreen(); // Stay on main screen if connection fails
+            showMainScreen(); 
         };
 
         ws.onclose = () => {
             console.log('Disconnected from WebSocket server');
             showToast('서버 연결 종료.');
-            // If we were in the lobby or room, go back to main screen
+            
             if (!lobbyScreen.classList.contains('hidden') || !roomScreen.classList.contains('hidden')) {
                 showMainScreen();
             }
@@ -1134,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    let currentGameState = null; // New: Store current game state for the room
+    let currentGameState = null; 
 
     const showRoomScreen = (gameState) => {
         currentGameState = gameState;
@@ -1230,19 +1231,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mashSuccessTimer) clearTimeout(mashSuccessTimer);
         if (nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
 
-        // Close WebSocket connection if open
+        
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.close();
             ws = null;
         }
 
-        currentRoomId = null; // Reset room ID
-        myClientId = null; // Reset client ID
-        myRole = '관전'; // Reset role
+        currentRoomId = null; 
+        myClientId = null; 
+        myRole = '관전'; 
 
         currentRound = 0;
-        playerLives = 5; // Reset lives on returning to main screen
-        lifeLostInPreviousRound = false; // Reset flag for next game
+        playerLives = 5; 
+        lifeLostInPreviousRound = false; 
         isMashPracticeMode = false;
         isReplaying = false;
 
@@ -1260,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 onlineButtonContainer.classList.remove('hidden');
             }
-        } // Show online button
+        } 
         gameScreen.innerHTML = '';
     };
 
@@ -1272,31 +1273,31 @@ document.addEventListener('DOMContentLoaded', () => {
         let match;
         const regex = /(Rp|tt)/g;
 
-        // Find all extendable segments and their positions
+        
         while ((match = regex.exec(tempPatternString)) !== null) {
             segmentsToExtend.push({ type: match[0], index: match.index });
         }
 
         if (segmentsToExtend.length === 0 || patternExtensionLevel <= 0) {
-            return patternString; // No segments to extend or no extension allowed
+            return patternString; 
         }
 
-        // Calculate total extension budget
+        
         const totalExtensionBudget = Math.floor(Math.random() * patternExtensionLevel);
 
-        // --- New Distribution Logic ---
+        
         let extensionCounts = new Array(segmentsToExtend.length).fill(0);
         let remainingBudget = totalExtensionBudget;
 
-        // Calculate maximum allowed extension for a single segment
-        // Constraint: no single extended part is more than 1:3 longer than the sum of all other extended parts.
-        // This translates to: max 1/4 of total budget for any single segment.
-        let maxExtensionPerSegment = totalExtensionBudget; // Default to no specific limit
-        if (totalExtensionBudget >= 4) { // Apply constraint only if budget is large enough for it to be meaningful
+        
+        
+        
+        let maxExtensionPerSegment = totalExtensionBudget; 
+        if (totalExtensionBudget >= 4) { 
             maxExtensionPerSegment = Math.floor(totalExtensionBudget / 4);
         }
 
-        // Distribute budget iteratively, respecting the maxExtensionPerSegment constraint
+        
         while (remainingBudget > 0) {
             let candidates = [];
             for (let k = 0; k < segmentsToExtend.length; k++) {
@@ -1306,15 +1307,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (candidates.length === 0) {
-                // All segments have reached their individual max, but budget remains.
-                // This means the constraint is too strict for the remaining budget or segments. 
-                // Distribute remaining budget to any segment to ensure total budget is used.
+                
+                
+                
                 if (segmentsToExtend.length > 0) {
                     let randomIndex = Math.floor(Math.random() * segmentsToExtend.length);
                     extensionCounts[randomIndex]++;
                     remainingBudget--;
                 } else {
-                    break; // No segments to distribute to
+                    break; 
                 }
             } else {
                 let randomIndex = candidates[Math.floor(Math.random() * candidates.length)];
@@ -1322,9 +1323,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 remainingBudget--;
             }
         }
-        // --- End New Distribution Logic ---
+        
 
-        // Reconstruct the pattern string with distributed extensions
+        
         let adjustedPattern = "";
         let lastIndex = 0;
         let segmentIndex = 0;
@@ -1338,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     for (let k = 0; k < extensionCounts[segmentIndex]; k++) {
                         adjustedPattern += segmentsToExtend[j].type;
                     }
-                    i += segmentsToExtend[j].type.length - 1; // Advance i by segment length - 1
+                    i += segmentsToExtend[j].type.length - 1; 
                     lastIndex = i + 1;
                     segmentIndex++;
                     isExtendedSegment = true;
@@ -1361,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         while (i < patternString.length) {
             let processed = false;
 
-            // 1. Prioritize checking for tttt
+            
             if (patternString.substring(i, i + 4) === 'tttt') {
                 if (Math.random() < rabbitTransformProbabilityFactor) {
                     transformedPattern += 'rr';
@@ -1372,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 processed = true;
             }
 
-            // 2. If tttt was not matched, check for tttttt
+            
             if (!processed && patternString.substring(i, i + 6) === 'tttttt') {
                 if (Math.random() < rabbitTransformProbabilityFactor) {
                     transformedPattern += 'rttr';
@@ -1383,13 +1384,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 processed = true;
             }
 
-            // 3. If neither tttt nor tttttt was matched, handle single characters or tt pairs
+            
             if (!processed) {
                 if (patternString[i] === 't' && patternString[i+1] === 't') {
-                    transformedPattern += 'tt'; // Keep the tt pair
+                    transformedPattern += 'tt'; 
                     i += 2;
                 } else {
-                    transformedPattern += patternString[i]; // Append single character
+                    transformedPattern += patternString[i]; 
                     i++;
                 }
             }
@@ -1416,7 +1417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pattern.push(8);
                     break;
                 default:
-                    // Ignore unknown characters
+                    
                     break;
             }
         }
@@ -1444,40 +1445,40 @@ document.addEventListener('DOMContentLoaded', () => {
         footerSettings.classList.add('hidden');
         rankingScreen.classList.add('hidden');
         if (rankingButtonContainer) rankingButtonContainer.classList.add('hidden');
-        if (onlineButtonContainer) onlineButtonContainer.classList.add('hidden'); // Hide online button container
+        if (onlineButtonContainer) onlineButtonContainer.classList.add('hidden'); 
         gameScreen.classList.remove('hidden');
         
-        let pattern; // This will be an array of row arrays
+        let pattern; 
 
         if (isReplay) {
-            // In replay mode, the pattern is already set in gamePattern
+            
             pattern = [];
             for(let i = 0; i < gamePattern.length; i += 6) {
                 pattern.push(gamePattern.slice(i, i + 6));
             }
         } else if (isMashPracticeMode) {
-            const count = (Math.floor(Math.random() * 7) + 2) * 2; // Even number from 4 to 16
+            const count = (Math.floor(Math.random() * 7) + 2) * 2; 
             const mashPattern = Array(count).fill(8);
             pattern = [];
             for(let i = 0; i < mashPattern.length; i += 6) {
                 pattern.push(mashPattern.slice(i, i + 6));
             }
-            targetTteokKey = 'Pig'; // Dummy value, not rendered
+            targetTteokKey = 'Pig'; 
         } else if (isPracticeMode) {
             const lines = parseInt(linesInput.value, 10);
             pattern = patternGenerator.generateFullPattern(lines * 6, role);
-            targetTteokKey = 'Pig'; // Assign default for practice mode
-        } else if (serverPattern) { // New: Use server-provided pattern for online play
-            gamePattern = serverPattern; // serverPattern is already flat
+            targetTteokKey = 'Pig'; 
+        } else if (serverPattern) { 
+            gamePattern = serverPattern; 
             pattern = [];
             for(let i = 0; i < gamePattern.length; i += 6) {
                 pattern.push(gamePattern.slice(i, i + 6));
             }
-            // targetTteokKey is already set from serverTteokKey
-        } else { // Real single-player mode
-            currentRound++; // Increment round counter for single-player mode
+            
+        } else { 
+            currentRound++; 
             try {
-                // Determine available tteok for the current round
+                
                 let availableTteokForRound = [];
                 for (const config of roundConfig.roundTteok) {
                     const [start, end] = config.rounds.split('-').map(s => parseInt(s, 10));
@@ -1502,16 +1503,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(`${randomTteokKey}에 대한 패턴 파일이 patternManifest에 정의되어 있지 않습니다.`);
                 }
                 const randomPatternFile = patternFiles[Math.floor(Math.random() * patternFiles.length)];
-                const patternFilePath = `patterns/${randomTteokKey}/${randomPatternFile}`; // Client-side path
+                const patternFilePath = `patterns/${randomTteokKey}/${randomPatternFile}`; 
 
                 const response = await fetch(patternFilePath);
                 if (!response.ok) throw new Error(`패턴 파일을 불러올 수 없습니다: ${patternFilePath} - ` + response.statusText);
                 const patternString = await response.text();
 
-                let currentPatternExtensionLevel = 1; // Default fallback
-                let currentRabbitTransformProbabilityFactor = defaultRabbitTransformProbabilityFactor; // Use global default
+                let currentPatternExtensionLevel = 1; 
+                let currentRabbitTransformProbabilityFactor = defaultRabbitTransformProbabilityFactor; 
 
-                // Get default difficulty from progression
+                
                 for (const config of tteokDifficultyConfig.default_difficulty_progression) {
                     const [start, end] = config.rounds.split('-').map(s => parseInt(s, 10));
                     if (currentRound >= start && (isNaN(end) || currentRound <= end)) {
@@ -1520,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Apply tteok-specific overrides if they exist
+                
                 const tteokConfig = tteokDifficultyConfig.tteok_difficulty[randomTteokKey];
                 if (tteokConfig && tteokConfig.overrides) {
                     const tteokOverrides = tteokConfig.overrides;
@@ -1558,17 +1559,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 for(let i = 0; i < parsedPattern.length; i += 6) {
                     pattern.push(parsedPattern.slice(i, i + 6));
                 }
-                targetTteokKey = randomTteokKey; // Set targetTteokKey here
+                targetTteokKey = randomTteokKey; 
 
             } catch (error) {
                 console.error("패턴 로딩 실패:", error);
                 alert("패턴 파일을 불러오는 데 실패했습니다. " + error.message);
-                showMainScreen(); // Go back to main screen on error
+                showMainScreen(); 
                 return;
             }
         }
 
-        // If serverPattern was used, gamePattern is already set. Otherwise, flatten the generated pattern.
+        
         if (!serverPattern) {
             gamePattern = pattern.flat();
         }
@@ -1615,10 +1616,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         ` : '';
 
-        // floor 컨테이너 분리 보존 (이벤트 리스너 유지, 재생성 깜빡임 방지)
+        
         const savedFloor = gameScreen.querySelector('.floor-container');
         if (savedFloor) savedFloor.remove();
 
+        gameScreen.style.visibility = 'hidden';
         gameScreen.innerHTML = `
             <div class="ceiling">
                 <div class="timer-container">
@@ -1654,7 +1656,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         
-                        // Add hearts for replay
+                        
         
                         const heartContainer = document.createElement('div');
         
@@ -1674,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
                         ceilingElement.appendChild(heartContainer);
         
-                        updateHeartDisplay(); // Update display based on replay lives
+                        updateHeartDisplay(); 
         
         
         
@@ -1726,17 +1728,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         
         
-        // onload 아닌 decode()로 대기 → GPU까지 준비된 후 한번에 렌더
+        
         await Promise.all(
             Array.from(gameScreen.querySelectorAll('.command-icon, .recipe-container img'))
                 .map(img => img.decode().catch(() => {}))
         );
 
-        if (savedFloor) {
-            // 기존 floor 재연결 (버튼/리스너 그대로)
+        if (savedFloor && savedFloor.dataset.role === role) {
             savedFloor.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => el.style.visibility = '');
             gameScreen.querySelector('.floor-container').replaceWith(savedFloor);
             setupButtonListeners(gameScreen.querySelector('.exit-button'));
+            updateKeybindDisplays();
         } else {
             renderFloorButtons(role);
         }
@@ -1749,14 +1751,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
-        
-        
-                        positionGlowReliably();
 
-        if (!isMashPracticeMode) { // Run timer UI for normal games and replays
+        gameScreen.style.visibility = '';
+
+        positionGlowReliably();
+
+        if (!isMashPracticeMode) { 
             const timeLimit = (isPracticeMode && !isReplay) ? parseInt(timeInput.value, 10) : 4;
             
-            if (!isReplay) { // But only set the functional timeout for actual games
+            if (!isReplay) { 
                 if (roundTimer) clearTimeout(roundTimer);
                 roundStartTime = performance.now();
                 roundTimer = setTimeout(() => {
@@ -1776,8 +1779,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!isReplay) {
-            // In online mode, the server will send 'roundStart' which will trigger the game flow.
-            // We should not call processNextCommand here for online games.
+            
+            
             if (!(ws && ws.readyState === WebSocket.OPEN && currentRoomId)) {
                 processNextCommand();
             }
@@ -1794,28 +1797,28 @@ document.addEventListener('DOMContentLoaded', () => {
         showGameScreen(role);
     };
 
-    // Function to allow starting from a specific round via console
+    
     window.setCurrentRound = (roundNum) => {
         if (typeof roundNum === 'number' && roundNum >= 1) {
-            currentRound = roundNum - 1; // Will be incremented to roundNum in showGameScreen
+            currentRound = roundNum - 1; 
             console.log(`다음 라운드는 ${roundNum} 라운드부터 시작됩니다.`);
         } else {
             console.error("유효하지 않은 라운드 번호입니다. 1 이상의 숫자를 입력해주세요.");
         }
     };
 
-    // =================================================================
-    // SECTION 4: RANKING & REPLAY LOGIC
-    // =================================================================
+    
+    
+    
 
     const showRankingScreen = async (role = '돼지') => {
         mainContent.classList.add('hidden');
         footerSettings.classList.add('hidden');
         if (rankingButtonContainer) rankingButtonContainer.classList.add('hidden');
-        if (onlineButtonContainer) onlineButtonContainer.classList.add('hidden'); // Hide online button container
+        if (onlineButtonContainer) onlineButtonContainer.classList.add('hidden'); 
         rankingScreen.classList.remove('hidden');
         
-        // Update active button style
+        
         document.querySelectorAll('.role-selector-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.role === role);
         });
@@ -1859,8 +1862,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startReplay = (gameData) => {
         isReplaying = true;
-        playerLives = 5; // Reset lives for replay
-        lifeLostInReplayRound = false; // Reset replay life loss flag
+        playerLives = 5; 
+        lifeLostInReplayRound = false; 
         rankingScreen.classList.add('hidden');
 
         const lines = gameData.split('\n');
@@ -1872,11 +1875,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { type, command: parseInt(value, 10), source: parts[2], time: parseInt(parts[3], 10) };
             }
             return { type, value };
-        }).filter(e => e.type); // Filter out empty lines
+        }).filter(e => e.type); 
 
-        // Find and set the role for the entire replay
+        
         const roleEvent = replayEvents.find(e => e.type === 'ROLE');
-        currentRole = roleEvent ? roleEvent.value : '돼지'; // Default to 돼지 if not found
+        currentRole = roleEvent ? roleEvent.value : '돼지'; 
 
         replayLoop();
     };
@@ -1901,19 +1904,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         switch (event.type) {
-            case 'ROLE': // Role is handled in startReplay, just skip here
+            case 'ROLE': 
                 replayLoop();
                 break;
 
             case 'R':
-                replayRoundStartTime = Date.now(); // Record when the round visually starts
+                replayRoundStartTime = Date.now(); 
                 currentRound = parseInt(event.value, 10);
 
-                // Handle life loss from the *previous* round
+                
                 if (lifeLostInReplayRound) {
                     playerLives--;
                     updateHeartDisplay();
-                    lifeLostInReplayRound = false; // Reset for the new round
+                    lifeLostInReplayRound = false; 
                 }
 
                 if (playerLives <= 0) {
@@ -1935,11 +1938,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     gamePattern = patternEvent.value.split('').map(Number);
                     showGameScreen(currentRole, true, tteokKey);
                 }
-                nextReplayEventTimeout = setTimeout(replayLoop, 500); // Wait a bit before starting inputs
+                nextReplayEventTimeout = setTimeout(replayLoop, 500); 
                 break;
 
-            case 'P': // Pattern is handled by 'R', so we just skip it here
-            case 'T': // Tteok is also handled by 'R'
+            case 'P': 
+            case 'T': 
                 replayLoop();
                 break;
 
@@ -1964,11 +1967,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const delayForNextRound = Math.max(0, 4000 - timeElapsed);
 
                 nextReplayEventTimeout = setTimeout(() => {
-                    // Fast-forward to the next 'R' or end of events
+                    
                     while(replayEvents.length > 0 && !['R', 'T', 'P'].includes(replayEvents[0].type)) {
                         replayEvents.shift();
                     }
-                    // Now remove the T and P events as they are handled by R
+                    
                     while(replayEvents.length > 0 && (replayEvents[0].type === 'T' || replayEvents[0].type === 'P')) {
                         replayEvents.shift();
                     }
@@ -1977,14 +1980,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
 
             default:
-                replayLoop(); // Move to next event if unknown
+                replayLoop(); 
                 break;
         }
     };
 
-    // =================================================================
-    // SECTION 4: EVENT HANDLERS & LISTENERS
-    // =================================================================
+    
+    
+    
 
     function handlePress(event) {
         const target = event.currentTarget;
@@ -2105,7 +2108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     choiceButtons.forEach(button => {
-        // This loop now correctly handles the ranking button as well
+        
         if (button.id === 'ranking-button') {
             setupButtonListeners(button);
         } else if (button.textContent === '토끼') {
@@ -2176,7 +2179,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // If the player clicks the button for the role they already have, treat it as a ready toggle.
+            
             if (myRole === role && (myRole === '돼지' || myRole === '토끼')) {
                 wsSend('TR', currentRoomId);
             } else {
@@ -2200,11 +2203,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ws && ws.readyState === WebSocket.OPEN && currentRoomId) {
             wsSend('LR', currentRoomId);
             currentRoomId = null;
-            myRole = '관전'; // Reset my role
+            myRole = '관전'; 
             showLobbyScreen();
         } else {
             showToast('서버에 연결되어 있지 않습니다.');
-            showLobbyScreen(); // Just go to lobby screen if not connected
+            showLobbyScreen(); 
         }
     });
 
@@ -2254,9 +2257,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setupInputValidation(timeInput, { get:()=>lastValidTime, set:(v)=>lastValidTime=v }, 'practiceTime');
     }
 
-    // =================================================================
-    // SECTION 5: APP INITIALIZATION
-    // =================================================================
+    
+    
+    
 
     const initializeApp = async () => {
         try {
@@ -2284,7 +2287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         sfxSlider.addEventListener('input', () => {
-            // Later: Update SFX volume here
+            
             saveAudioSettings();
         });
 
@@ -2295,7 +2298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 serverAddress = config.serverAddress;
             }
         } catch (error) {}
-        // 저장된 서버 선택 우선 적용
+        
         const savedServer = localStorage.getItem('serverAddress');
         if (savedServer && SERVERS.some(s => s.url === savedServer)) {
             serverAddress = savedServer;
@@ -2354,12 +2357,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'res/thanksgiving_room_tteok_recipe_box.9.png',
             'res/thanksgiving_room_heart.png',
             'res/thanksgiving_room_heart_off.png',
-            // Pig Commands
+            
             'res/thanksgiving2024_room_command1.png', 'res/thanksgiving2024_room_command1_off.png', 'res/thanksgiving2024_room_command1_pressed.png', 'res/thanksgiving2024_room_command1_unpressed.png',
             'res/thanksgiving2024_room_command2.png', 'res/thanksgiving2024_room_command2_off.png', 'res/thanksgiving2024_room_command2_pressed.png', 'res/thanksgiving2024_room_command2_unpressed.png',
             'res/thanksgiving2024_room_command3.png', 'res/thanksgiving2024_room_command3_off.png', 'res/thanksgiving2024_room_command3_pressed.png', 'res/thanksgiving2024_room_command3_unpressed.png',
             'res/thanksgiving2024_room_command6.png', 'res/thanksgiving2024_room_command6_off.png', 'res/thanksgiving2024_room_command6_pressed.png', 'res/thanksgiving2024_room_command6_unpressed.png',
-            // Rabbit Commands
+            
             'res/thanksgiving_room_command4.png', 'res/thanksgiving_room_command4_off.png', 'res/thanksgiving_room_command4_pressed.png', 'res/thanksgiving_room_command4_unpressed.png',
             'res/thanksgiving_room_command5.png', 'res/thanksgiving_room_command5_off.png', 'res/thanksgiving_room_command5_pressed.png', 'res/thanksgiving_room_command5_unpressed.png',
             'res/thanksgiving_room_command7.png', 'res/thanksgiving_room_command7_off.png', 'res/thanksgiving_room_command7_pressed.png', 'res/thanksgiving_room_command7_unpressed.png',
@@ -2389,7 +2392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fullscreenToggle.style.visibility = 'hidden';
         }
 
-        // Restore saved settings
+        
         const savedNickname = localStorage.getItem('nickname') || '';
         nicknameInput.value = savedNickname;
 
