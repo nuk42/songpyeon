@@ -1957,7 +1957,8 @@ document.addEventListener('DOMContentLoaded', () => {
             replayPaused = true;
             seekToRound(parseInt(slider.value, 10));
         });
-        slider.addEventListener('change', () => {
+        const resumeReplay = () => {
+            if (!replayPaused) return;
             replayPaused = false;
             if (nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
             const gauge = gameScreen.querySelector('.timer-gauge');
@@ -1969,7 +1970,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 gauge.style.width = '0%';
             }
             nextReplayEventTimeout = setTimeout(replayLoop, 500);
-        });
+        };
+        slider.addEventListener('change', resumeReplay);
+        slider.addEventListener('pointerup', resumeReplay);
         updateFill();
 
         replayLoop();
