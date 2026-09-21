@@ -1329,3 +1329,120 @@ img {
     cursor: pointer;
     border-radius: 50%;
 }
+
+.replay-controls {
+    position: absolute;
+    bottom: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 10;
+    width: 78%;
+    pointer-events: auto;
+}
+
+.replay-round-label {
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: bold;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+    letter-spacing: 0.04em;
+    user-select: none;
+}
+
+.replay-slider-wrapper {
+    position: relative;
+    width: 100%;
+    height: 1.3rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Fail-round stripe markers — rendered after slider in DOM, so above it */
+.replay-fail-marks {
+    position: absolute;
+    left: calc(1.3rem / 2);
+    right: calc(1.3rem / 2);
+    top: 50%;
+    height: 0.75rem;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.replay-fail-mark {
+    position: absolute;
+    top: 0;
+    width: 3px;
+    height: 100%;
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(
+        -45deg,
+        rgba(220, 50, 50, 1) 0,
+        rgba(220, 50, 50, 1) 2px,
+        rgba(255, 140, 140, 0.85) 2px,
+        rgba(255, 140, 140, 0.85) 4px
+    );
+    border-radius: 1px;
+}
+
+.replay-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 0.45rem;
+    border-radius: 0.25rem;
+    background: linear-gradient(
+        to right,
+        rgba(255,255,255,0.9) 0%,
+        rgba(255,255,255,0.9) var(--fill, 0%),
+        rgba(255,255,255,0.22) var(--fill, 0%),
+        rgba(255,255,255,0.22) 100%
+    );
+    outline: none;
+    cursor: pointer;
+    touch-action: none;
+    margin: 0;
+    padding: 0;
+}
+
+.replay-slider::-webkit-slider-runnable-track {
+    height: 0.45rem;
+    border-radius: 0.25rem;
+}
+
+.replay-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    cursor: grab;
+    margin-top: calc((0.45rem - 1.3rem) / 2);
+}
+
+.replay-slider:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.75);
+}
+
+.replay-slider::-moz-range-thumb {
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    cursor: grab;
+}
+
+.replay-slider::-moz-range-progress {
+    background: rgba(255,255,255,0.9);
+    height: 0.45rem;
+    border-radius: 0.25rem;
+}

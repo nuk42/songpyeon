@@ -79,8 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let nextRoundTimeoutId = null;
     let isReplaying = false;
     let replayEvents = [];
+    let allReplayEvents = [];
+    let replayLivesMap = {};
+    let replayFailedRounds = new Set();
     let nextReplayEventTimeout = null;
     let replayRoundStartTime = 0;
+    let replayMaxRound = 0;
+    let replayPaused = false;
+    let replayControlsEl = null;
     const pigGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_pig_command_glow${String(i).padStart(2, '0')}.png`);
     const rabbitGlowFrames = Array.from({length: 10}, (_, i) => `res/thanksgiving_rabbit_command_glow${String(i).padStart(2, '0')}.png`);
     const pigMissFrames = Array.from({length: 16}, (_, i) => `res/thanksgiving_room_miss_pig${i}.png`);
@@ -1244,6 +1250,12 @@ document.addEventListener('DOMContentLoaded', () => {
         lifeLostInPreviousRound = false; 
         isMashPracticeMode = false;
         isReplaying = false;
+        replayMaxRound = 0;
+        allReplayEvents = [];
+        replayLivesMap = {};
+        replayFailedRounds = new Set();
+        replayPaused = false;
+        replayControlsEl = null;
 
         mainContent.classList.remove('hidden');
         footerSettings.classList.remove('hidden');
@@ -1637,7 +1649,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="scroll-viewport"><div class="scroll-content">${commandBoxesHTML}</div></div>
             </div>
             <div class="floor-container"></div>`;
-        
+
+
                 const ceilingElement = gameScreen.querySelector('.ceiling');
         
                 if (ceilingElement) {
@@ -1747,6 +1760,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 floorContainer.querySelectorAll('.floor-button, .keybind-overlay').forEach(el => {
                     el.style.visibility = 'hidden';
                 });
+
+                if (isReplay && replayControlsEl) {
+                    floorContainer.appendChild(replayControlsEl);
+                    const slider = replayControlsEl.querySelector('.replay-slider');
+                    const label = replayControlsEl.querySelector('.replay-round-label');
+                    if (slider) {
+                        slider.value = currentRound;
+                        const pct = replayMaxRound > 1 ? (currentRound - 1) / (replayMaxRound - 1) * 100 : 100;
+                        slider.style.setProperty('--fill', pct + '%');
+                    }
+                    if (label) label.textContent = `Round ${currentRound} / ${replayMaxRound}`;
+                }
             }
         }
 
@@ -1766,11 +1791,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const gauge = gameScreen.querySelector('.timer-gauge');
             if (gauge) {
-                gauge.style.transition = 'none';
-                gauge.style.width = '100%';
-                gauge.offsetHeight; 
-                gauge.style.transition = `width ${timeLimit}s linear`;
-                gauge.style.width = '0%';
+                if (isReplay && replayPaused) {
+                    gauge.style.transition = 'none';
+                    gauge.style.width = '0%';
+                } else {
+                    gauge.style.transition = 'none';
+                    gauge.style.width = '100%';
+                    gauge.offsetHeight;
+                    gauge.style.transition = `width ${timeLimit}s linear`;
+                    gauge.style.width = '0%';
+                }
             }
         }
 
@@ -1875,8 +1905,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
         
         const roleEvent = replayEvents.find(e => e.type === 'ROLE');
-        currentRole = roleEvent ? roleEvent.value : '돼지'; 
+        currentRole = roleEvent ? roleEvent.value : '돼지';
 
+        replayMaxRound = replayEvents
+            .filter(e => e.type === 'R')
+            .reduce((max, e) => Math.max(max, parseInt(e.value, 10) || 0), 0);
+
+        allReplayEvents = [...replayEvents];
+
+        // Pre-calculate lives at the start of each round
+        replayLivesMap = {};
+        let lives = 5;
+        let scanRound = 0;
+        replayFailedRounds = new Set();
+        for (const e of allReplayEvents) {
+            if (e.type === 'R') {
+                scanRound = parseInt(e.value, 10);
+                replayLivesMap[scanRound] = lives;
+            } else if (e.type === 'O' && e.value === 'fail') {
+                replayFailedRounds.add(scanRound);
+                lives = Math.max(0, lives - 1);
+            }
+        }
+
+        // Build fail-round markers HTML for the slider track
+        const failMarksHTML = Array.from(replayFailedRounds).map(r => {
+            const pct = replayMaxRound > 1 ? (r - 1) / (replayMaxRound - 1) * 100 : 0;
+            return `<span class="replay-fail-mark" style="left:${pct}%"></span>`;
+        }).join('');
+
+        // Create persistent slider controls (reused across rounds)
+        replayPaused = false;
+        replayControlsEl = document.createElement('div');
+        replayControlsEl.className = 'replay-controls';
+        replayControlsEl.innerHTML = `
+            <span class="replay-round-label">Round 1 / ${replayMaxRound}</span>
+            <div class="replay-slider-wrapper">
+                <input type="range" class="replay-slider" min="1" max="${replayMaxRound}" value="1">
+                <div class="replay-fail-marks">${failMarksHTML}</div>
+            </div>
+        `;
+        const slider = replayControlsEl.querySelector('.replay-slider');
+        const label = replayControlsEl.querySelector('.replay-round-label');
+        const updateFill = () => {
+            const pct = replayMaxRound > 1 ? (slider.value - 1) / (replayMaxRound - 1) * 100 : 100;
+            slider.style.setProperty('--fill', pct + '%');
+        };
+        slider.addEventListener('input', () => {
+            label.textContent = `Round ${slider.value} / ${replayMaxRound}`;
+            updateFill();
+            replayPaused = true;
+            seekToRound(parseInt(slider.value, 10));
+        });
+        slider.addEventListener('change', () => {
+            replayPaused = false;
+            if (nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
+            const gauge = gameScreen.querySelector('.timer-gauge');
+            if (gauge) {
+                gauge.style.transition = 'none';
+                gauge.style.width = '100%';
+                gauge.offsetHeight;
+                gauge.style.transition = 'width 4s linear';
+                gauge.style.width = '0%';
+            }
+            nextReplayEventTimeout = setTimeout(replayLoop, 500);
+        });
+        updateFill();
+
+        replayLoop();
+    };
+
+    const seekToRound = (targetRound) => {
+        if (!isReplaying) return;
+        if (nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
+        lifeLostInReplayRound = false;
+        const idx = allReplayEvents.findIndex(e => e.type === 'R' && parseInt(e.value, 10) === targetRound);
+        if (idx === -1) { if (!replayPaused) replayLoop(); return; }
+        replayEvents = allReplayEvents.slice(idx);
+        playerLives = replayLivesMap[targetRound] ?? 5;
         replayLoop();
     };
 
@@ -1934,7 +2040,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     gamePattern = patternEvent.value.split('').map(Number);
                     showGameScreen(currentRole, true, tteokKey);
                 }
-                nextReplayEventTimeout = setTimeout(replayLoop, 500); 
+                if (!replayPaused) {
+                    nextReplayEventTimeout = setTimeout(replayLoop, 500);
+                }
                 break;
 
             case 'P': 
