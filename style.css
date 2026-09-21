@@ -1356,7 +1356,7 @@ img {
 .replay-slider-wrapper {
     position: relative;
     width: 100%;
-    height: 1.3rem;
+    height: 2.2rem;
     display: flex;
     align-items: center;
 }
@@ -1364,8 +1364,8 @@ img {
 /* Fail-round stripe markers — rendered after slider in DOM, so above it */
 .replay-fail-marks {
     position: absolute;
-    left: calc(1.3rem / 2);
-    right: calc(1.3rem / 2);
+    left: 0;
+    right: 0;
     top: 50%;
     height: 0.75rem;
     transform: translateY(-50%);
@@ -1393,15 +1393,8 @@ img {
     width: 100%;
     -webkit-appearance: none;
     appearance: none;
-    height: 0.45rem;
-    border-radius: 0.25rem;
-    background: linear-gradient(
-        to right,
-        rgba(255,255,255,0.9) 0%,
-        rgba(255,255,255,0.9) var(--fill, 0%),
-        rgba(255,255,255,0.22) var(--fill, 0%),
-        rgba(255,255,255,0.22) 100%
-    );
+    height: 2.2rem;
+    background: transparent;
     outline: none;
     cursor: pointer;
     touch-action: none;
@@ -1412,6 +1405,13 @@ img {
 .replay-slider::-webkit-slider-runnable-track {
     height: 0.45rem;
     border-radius: 0.25rem;
+    background: linear-gradient(
+        to right,
+        rgba(255,255,255,0.9) 0%,
+        rgba(255,255,255,0.9) var(--fill, 0%),
+        rgba(255,255,255,0.22) var(--fill, 0%),
+        rgba(255,255,255,0.22) 100%
+    );
 }
 
 .replay-slider::-webkit-slider-thumb {

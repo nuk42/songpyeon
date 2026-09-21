@@ -1947,16 +1947,26 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         const slider = replayControlsEl.querySelector('.replay-slider');
         const label = replayControlsEl.querySelector('.replay-round-label');
-        const updateFill = () => {
-            const pct = replayMaxRound > 1 ? (slider.value - 1) / (replayMaxRound - 1) * 100 : 100;
+
+        const updateFill = (val) => {
+            const pct = replayMaxRound > 1 ? (val - 1) / (replayMaxRound - 1) * 100 : 100;
             slider.style.setProperty('--fill', pct + '%');
         };
-        slider.addEventListener('input', () => {
-            label.textContent = `Round ${slider.value} / ${replayMaxRound}`;
-            updateFill();
-            replayPaused = true;
-            seekToRound(parseInt(slider.value, 10));
-        });
+
+        const applyValue = (val) => {
+            val = Math.max(1, Math.min(replayMaxRound, val));
+            slider.value = val;
+            label.textContent = `Round ${val} / ${replayMaxRound}`;
+            updateFill(val);
+            seekToRound(val);
+        };
+
+        const getValFromPointer = (e) => {
+            const rect = slider.getBoundingClientRect();
+            const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            return Math.round(1 + pct * (replayMaxRound - 1));
+        };
+
         const resumeReplay = () => {
             if (!replayPaused) return;
             replayPaused = false;
@@ -1971,9 +1981,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             nextReplayEventTimeout = setTimeout(replayLoop, 500);
         };
-        slider.addEventListener('change', resumeReplay);
-        slider.addEventListener('pointerup', resumeReplay);
-        updateFill();
+
+        let isDragging = false;
+        slider.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            slider.setPointerCapture(e.pointerId);
+            replayPaused = true;
+            applyValue(getValFromPointer(e));
+        });
+        slider.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            applyValue(getValFromPointer(e));
+        });
+        slider.addEventListener('pointerup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            resumeReplay();
+        });
+        slider.addEventListener('pointercancel', () => {
+            isDragging = false;
+            resumeReplay();
+        });
+
+        updateFill(1);
 
         replayLoop();
     };
@@ -2118,6 +2149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isReplaying) {
                 isReplaying = false;
                 if(nextReplayEventTimeout) clearTimeout(nextReplayEventTimeout);
+                if (bgmSourceNode) { bgmSourceNode.stop(); bgmSourceNode = null; }
                 gameScreen.classList.add('hidden');
                 gameScreen.innerHTML = '';
                 showRankingScreen();
